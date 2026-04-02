@@ -1,14 +1,19 @@
 import os
 import re
+import logging
 import numpy as np
 import awkward as ak
 import vector
 import uproot
+from typing import List, Optional
 
-from XRootD import client
-from XRootD.client.flags import DirListFlags
+try:
+    from XRootD import client
+    from XRootD.client.flags import DirListFlags
+except ImportError:
+    logging.debug("XRootD library not found. EOS file listing will not work, and will error. Please install XRootD if needed.")
 
-from .. import physics
+# from .. import physics
 from . import selections
 
 ttbar_run2_pattern = re.compile(r"(?:ee|emu|mumu)_ttbarsignal(?:plus|via)tau_fromDilepton.*\.root")
@@ -84,7 +89,29 @@ run3_branches = [
     'eventWeight',
 ]
 
-def get_common_run_for_eras(eras):
+#####################################################################################################
+######## Physics utility for particle masses - should be factored out into a physics library ########
+#####################################################################################################
+particle_masses = {
+    11: 0.000511, # electron
+    13: 0.10566, # muon
+    15: 1.77686, # tau
+    5: 4.8, # b quark
+}
+
+def masses_from_pdgids(pdgids: ak.Array) -> ak.Array:
+    mass_array = ak.zeros_like(pdgids, dtype=np.float32)
+    for pdgid, mass in particle_masses.items():
+        mask = (pdgids == pdgid) | (pdgids == -pdgid)
+        mass_array = ak.where(mask, mass, mass_array)
+    
+    if ak.any(mass_array == 0):
+        print("WARNING: Found pdgids with no assigned mass. Setting mass to 0 for these particles.")
+    
+    return mass_array
+###################################### End of physics utility. ######################################
+
+def get_common_run_for_eras(eras: List[str]) -> int:
     if all(era in run2_eras for era in eras):
         return 2
     elif all(era in run3_eras for era in eras):
@@ -92,7 +119,12 @@ def get_common_run_for_eras(eras):
     else:
         raise ValueError(f"All eras must be from the same run (either Run 2 or Run 3). Provided eras: {eras}")
 
-def generate_file_list(base_dir, era, suffix="ttBar_treeVariables_step7", use_eos=False):
+def generate_file_list(
+    base_dir: str,
+    era: str,
+    suffix: Optional[str] = "ttBar_treeVariables_step7",
+    use_eos: Optional[bool] = False
+) -> List[str]:
     if (era in run2_eras):
         pattern = ttbar_run2_pattern
     elif (era in run3_eras):
@@ -124,9 +156,14 @@ def generate_file_list(base_dir, era, suffix="ttBar_treeVariables_step7", use_eo
     
     return file_list
 
-def generate_file_list_from_minitrees(eras, version, suffix="ttBar_treeVariables_step7"):
+def generate_file_list_from_minitrees(
+    eras: List[str],
+    version: str,
+    suffix: Optional[str] = "ttBar_treeVariables_step7"
+):
     file_list = []
     for era in eras:
+        # TODO: Accept an optional base directory and use_eos option ... also probably use eos as default
         base_dir = f"/depot/cms/users/jduarteq/{era}/spinCorrInput_{era}_{version}/Nominal"
         if (not os.path.isdir(base_dir)):
             print(f"Warning: directory does not exist: {base_dir}")
@@ -136,18 +173,19 @@ def generate_file_list_from_minitrees(eras, version, suffix="ttBar_treeVariables
     
     return file_list
 
-def load_dataset_info_from_files(file_list, eras_included):
+def load_dataset_info_from_files(file_list: List[str], eras_included: List[str]) -> ak.Array:
     is_run2 = get_common_run_for_eras(eras_included) == 2
     if is_run2:
         return uproot.concatenate(file_list, run2_branches, library="ak")
     else:
         return uproot.concatenate(file_list, run3_branches, library="ak")
 
-def create_vectors_run2(data_info):
+def create_vectors_run2(data_info: ak.Array) -> dict:
     """
     Creates the vectors for a reconstruction dataset based on Run 2 MC.
     """
-    leptons_masses = physics.masses_from_pdgids(data_info["lepton_pdgids"])
+    # leptons_masses = physics.masses_from_pdgids(data_info["lepton_pdgids"])
+    leptons_masses = masses_from_pdgids(data_info["lepton_pdgids"])
     all_leptons = vector.Array(ak.zip({
         "pt": data_info["lepton_pts"],
         "eta": data_info["lepton_etas"],
@@ -170,8 +208,10 @@ def create_vectors_run2(data_info):
         "phi": selected_data["met_phi"].to_numpy()[:, np.newaxis],
     })
 
-    gen_l_masses = physics.masses_from_pdgids(selected_data["gen_l_pdgid"]).to_numpy()
-    gen_lbar_masses = physics.masses_from_pdgids(selected_data["gen_lbar_pdgid"]).to_numpy()
+    # gen_l_masses = physics.masses_from_pdgids(selected_data["gen_l_pdgid"]).to_numpy()
+    # gen_lbar_masses = physics.masses_from_pdgids(selected_data["gen_lbar_pdgid"]).to_numpy()
+    gen_l_masses = masses_from_pdgids(selected_data["gen_l_pdgid"]).to_numpy()
+    gen_lbar_masses = masses_from_pdgids(selected_data["gen_lbar_pdgid"]).to_numpy()
 
     vector_info = {
         "reco": {
@@ -213,7 +253,7 @@ def create_vectors_run2(data_info):
 
     return vector_info
 
-def create_vectors_run3(data_info):
+def create_vectors_run3(data_info: ak.Array) -> dict:
     """
     Creates the vectors for a reconstruction dataset based on Run 3 MC.
     """
@@ -260,7 +300,6 @@ def create_vectors_run3(data_info):
     vector_info["reco"]["jet_btag"] = data_info["jets_BtagRobustParTAK4B"]
 
     return vector_info
-
 
 def create_vectors(data_info, eras_included):
     is_run2 = get_common_run_for_eras(eras_included) == 2
