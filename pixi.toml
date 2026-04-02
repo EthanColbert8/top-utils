@@ -1,0 +1,56 @@
+[workspace]
+authors = ["EthanColbert8 <emcolbert2@gmail.com>"]
+channels = ["conda-forge"]
+name = "top-utils"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+# [system-requirements]
+# cuda = "12.4"
+
+[tasks]
+
+[dependencies]
+python = "3.12.*"
+numpy = "*"
+pandas = "2.2.*"
+awkward = "2.7.*"
+awkward-cpp = "*"
+scipy = "*"
+numba = "*"
+lmfit = "*"
+uncertainties = "*"
+matplotlib = "*"
+mplhep = "*"
+plotly = "*"
+coffea = "*"
+hist = "*"
+pyhf = "*"
+uproot = "*"
+vector = "*"
+scikit-learn = "*"
+# xgboost = "*"
+# gpustat = "*"
+ipykernel = "*"
+ipywidgets = "*"
+openssl = "*"
+pyarrow = "*"
+tqdm = "*"
+xrootd = "*"
+yaml = "*"
+pycurl = "*"
+
+# [pypi-dependencies]
+# torch = { version = "==2.6.0", index = "https://download.pytorch.org/whl/cu124" }
+# torchvision = { version = "*", index = "https://download.pytorch.org/whl/cu124" }
+# pykeops = "*"
+# geomloss = "*"
+
+# NOTE: the PyKeops library may fail to compile with CUDA support, citing a
+# linker (`ld`) error (specifically, that `ld` cannot find `-lnvrtc`, the nvrtc
+# shared library). This has been solved in the past by starting a `pixi shell`,
+# running `export LIBRARY_PATH=/usr/local/cuda/lib64`, and then running a python
+# script that includes `import geomloss`. This caused successful compilation.
+# After this, subsequent runs imported the already-compiled module.
+# If `LIBRARY_PATH` already exists, the path to CUDA libraries should
+# simply be added to it, rather than replacing it.
