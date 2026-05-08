@@ -67,5 +67,3 @@ def lepton_selection_emulation_run2(leptons, pdgids, l_index, lbar_index):
     })
 
     return selected_leptons, successful_events
-
-
