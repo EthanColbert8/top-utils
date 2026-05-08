@@ -1,0 +1,24 @@
+[project]
+name = "top-purdue-plotting"
+version = "0.1.0"
+description = "A small library of plotting routines for the Purdue top group."
+readme = "README.md"
+authors = [
+    { name = "EthanColbert8", email = "emcolbert2@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "awkward>=2.7",
+    "vector>=1.6",
+    "hist>=2.9",
+    "matplotlib>=3.9",
+    "mplhep>=1.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.10"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-exclude = [".ipynb_checkpoints"]
