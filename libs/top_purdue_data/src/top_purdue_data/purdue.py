@@ -11,18 +11,20 @@ try:
     from XRootD import client
     from XRootD.client.flags import DirListFlags
 except ImportError:
-    logging.debug("XRootD library not found. EOS file listing will not work, and will error. Please install XRootD if needed.")
+    logging.warning("XRootD library not found. EOS file listing will not work, and will error. Please install XRootD if needed.")
 
-# from .. import physics
 from . import selections
+from . import physics
+
+channels_list = ["ee", "emu", "mumu"] # TODO: Add tau channels if needed
 
 ttbar_run2_pattern = re.compile(r"(?:ee|emu|mumu)_ttbarsignal(?:plus|via)tau_fromDilepton.*\.root")
 ttbar_run3_pattern = re.compile(r"(?:ee|emu|mumu)_ttbar_fromDilepton.*\.root")
 
 run2_eras = set(["2016preVFP", "2016postVFP", "2017", "2018"])
-run3_eras = set(["2022preEE", "2022postEE", "2023preBPix", "2023postBPix"])
+run3_eras = set(["2022preEE", "2022postEE", "2023preBPix", "2023postBPix"]) # TODO: Add 2024, 2025
 
-run2_branches = [
+run2_reconstruction_branches = [
     # Jets, leptons, MET
     'jet_pts', 'jet_etas', 'jet_phis', 'jet_masses', 'jet_b_tags',
     'lepton_pts', 'lepton_etas', 'lepton_phis', 'lepton_pdgids', #'lepton_masses',
@@ -56,7 +58,7 @@ run2_branches = [
     'eventWeight',
 ]
 
-run3_branches = [
+run3_reconstruction_branches = [
     # Jets, leptons, MET
     'jets_pt', 'jets_eta', 'jets_phi', 'jets_mass', 'jets_BtagRobustParTAK4B', #'jets_BtagDeepFlavB',
     'l_pt', 'l_eta', 'l_phi', 'lbar_pt', 'lbar_eta', 'lbar_phi', 'l_mass', 'lbar_mass',
@@ -75,7 +77,7 @@ run3_branches = [
 
     # Gen-level objects: bs, leptons, neutrinos, tops, ttbar system
     'gen_b_pt', 'gen_b_eta', 'gen_b_phi', 'gen_bbar_pt', 'gen_bbar_eta', 'gen_bbar_phi', 'gen_b_mass', 'gen_bbar_mass',
-    'gen_l_pt', 'gen_l_eta', 'gen_l_phi', 'gen_lbar_pt', 'gen_lbar_eta', 'gen_lbar_phi', 'gen_l_mass', 'gen_lbar_mass', #'gen_l_pdgid', 'gen_lbar_pdgid',
+    'gen_l_pt', 'gen_l_eta', 'gen_l_phi', 'gen_lbar_pt', 'gen_lbar_eta', 'gen_lbar_phi', 'gen_l_pdgId', 'gen_lbar_pdgId', #'gen_l_mass', 'gen_lbar_mass',
     'gen_nu_pt', 'gen_nu_eta', 'gen_nu_phi', 'gen_nubar_pt', 'gen_nubar_eta', 'gen_nubar_phi', #'gen_nu_mass', 'gen_nubar_mass',
     'gen_top_pt', 'gen_top_eta', 'gen_top_phi', 'gen_top_mass', 'gen_tbar_pt', 'gen_tbar_eta', 'gen_tbar_phi', 'gen_tbar_mass',
     'gen_ttbar_pt', 'gen_ttbar_eta', 'gen_ttbar_phi', 'gen_ttbar_mass',
@@ -89,29 +91,10 @@ run3_branches = [
     'eventWeight',
 ]
 
-#####################################################################################################
-######## Physics utility for particle masses - should be factored out into a physics library ########
-#####################################################################################################
-particle_masses = {
-    11: 0.000511, # electron
-    13: 0.10566, # muon
-    15: 1.77686, # tau
-    5: 4.8, # b quark
-}
-
-def masses_from_pdgids(pdgids: ak.Array) -> ak.Array:
-    mass_array = ak.zeros_like(pdgids, dtype=np.float32)
-    for pdgid, mass in particle_masses.items():
-        mask = (pdgids == pdgid) | (pdgids == -pdgid)
-        mass_array = ak.where(mask, mass, mass_array)
-    
-    if ak.any(mass_array == 0):
-        print("WARNING: Found pdgids with no assigned mass. Setting mass to 0 for these particles.")
-    
-    return mass_array
-###################################### End of physics utility. ######################################
-
-def get_common_run_for_eras(eras: List[str]) -> int:
+def _get_common_run_for_eras(eras: List[str]) -> int:
+    """
+    Enforces that a list of eras are all from the same Run.
+    """
     if all(era in run2_eras for era in eras):
         return 2
     elif all(era in run3_eras for era in eras):
@@ -119,32 +102,31 @@ def get_common_run_for_eras(eras: List[str]) -> int:
     else:
         raise ValueError(f"All eras must be from the same run (either Run 2 or Run 3). Provided eras: {eras}")
 
-def generate_file_list(
+def get_minitree_file_list(
     base_dir: str,
-    era: str,
+    pattern: re.Pattern,
     suffix: Optional[str] = "ttBar_treeVariables_step7",
     use_eos: Optional[bool] = False
 ) -> List[str]:
-    if (era in run2_eras):
-        pattern = ttbar_run2_pattern
-    elif (era in run3_eras):
-        pattern = ttbar_run3_pattern
-    else:
-        raise ValueError(f"Unknown era: {era}")
-    
+    """
+    Gets the list of files for the specified location that match the regex pattern. This is
+    intended to be used to list minitree files to be loaded.
+    """
     if use_eos:
         purdue_eos = client.FileSystem("root://eos.cms.rcac.purdue.edu/")
     
     file_list = []
-    for channel in ["ee", "emu", "mumu"]:
+    for channel in channels_list:
         channel_dir = os.path.join(base_dir, channel)
         if not (os.path.isdir(channel_dir)):
-            print(f"Warning: Channel directory does not exist: {channel_dir}")
+            logging.warning(f"Channel directory does not exist: {channel_dir}")
             continue
         
         if use_eos:
             status, listing = purdue_eos.dirlist(channel_dir, DirListFlags.STAT)
-            # print(status) # TODO: Check status and report errors better
+            if status.error:
+                logging.warning(f"Unable to list directory {os.path.basename(channel_dir)} on EOS: {status.message}")
+                continue
             all_files = [entry.name for entry in listing]
         else:
             all_files = os.listdir(channel_dir)
@@ -156,36 +138,82 @@ def generate_file_list(
     
     return file_list
 
-def generate_file_list_from_minitrees(
+def get_nominal_ttbar_file_list(
     eras: List[str],
-    version: str,
+    version: Optional[str] = "March2026",
+    base_dir: Optional[str] = "/store/users/jduarteq",
+    use_eos: Optional[bool] = True,
     suffix: Optional[str] = "ttBar_treeVariables_step7"
-):
+) -> List[str]:
+    """
+    Gets the list of nominal ttbar files for the specified eras, and optionally other specifications.
+    """
     file_list = []
     for era in eras:
-        # TODO: Accept an optional base directory and use_eos option ... also probably use eos as default
-        base_dir = f"/depot/cms/users/jduarteq/{era}/spinCorrInput_{era}_{version}/Nominal"
-        if (not os.path.isdir(base_dir)):
-            print(f"Warning: directory does not exist: {base_dir}")
+        current_base_dir = os.path.join(base_dir, era, f"spinCorrInput_{era}_{version}", "Nominal")
+        if (not os.path.isdir(current_base_dir)):
+            logging.warning(f"Directory does not exist: {current_base_dir}")
             continue
         
-        file_list.extend(generate_file_list(base_dir, era, suffix))
+        # Select correct regex pattern, skip if none applicable
+        if (era in run2_eras):
+            pattern = ttbar_run2_pattern
+        elif (era in run3_eras):
+            pattern = ttbar_run3_pattern
+        else:
+            logging.warning(f"Era {era} does not belong to either Run 2 or Run 3. Skipping.")
+            continue
+
+        file_list.extend(get_minitree_file_list(current_base_dir, pattern, suffix, use_eos))
     
     return file_list
 
-def load_dataset_info_from_files(file_list: List[str], eras_included: List[str]) -> ak.Array:
-    is_run2 = get_common_run_for_eras(eras_included) == 2
+def load_reconstruction_data_from_files(file_list: List[str], eras_included: List[str]) -> ak.Array:
+    """
+    Loads reconstruction data from the specified files, can handle either Run 2 or Run 3,
+    but not a combination of both.
+    """
+    is_run2 = _get_common_run_for_eras(eras_included) == 2
     if is_run2:
-        return uproot.concatenate(file_list, run2_branches, library="ak")
+        return uproot.concatenate(file_list, run2_reconstruction_branches, library="ak")
     else:
-        return uproot.concatenate(file_list, run3_branches, library="ak")
+        return uproot.concatenate(file_list, run3_reconstruction_branches, library="ak")
 
-def create_vectors_run2(data_info: ak.Array) -> dict:
+def load_from_nominal_ttbar_files(
+    branches: List[str],
+    eras: List[str],
+    version: Optional[str] = "March2026",
+    base_dir: Optional[str] = "/store/users/jduarteq",
+    use_eos: Optional[bool] = True,
+    suffix: Optional[str] = "ttBar_treeVariables_step7"
+) -> ak.Array:
+    """
+    A convenience function to generate a list of nominal ttbar files and
+    load specified branches from them.
+    """
+    files = get_nominal_ttbar_file_list(eras, version, base_dir, use_eos, suffix)
+    return uproot.concatenate(files, branches, library="ak")
+
+def load_nominal_ttbar_reconstruction_data(
+    eras: List[str],
+    version: Optional[str] = "March2026",
+    base_dir: Optional[str] = "/store/users/jduarteq",
+    use_eos: Optional[bool] = True,
+    suffix: Optional[str] = "ttBar_treeVariables_step7"
+) -> ak.Array:
+    """
+    A convenience function that combines the steps of generating the file list from
+    specifications, and loading reconstruction data from those files.
+    """
+    files = get_nominal_ttbar_file_list(eras, version, base_dir, use_eos, suffix)
+    return load_reconstruction_data_from_files(files, eras)
+
+def _create_vectors_run2(data_info: ak.Array) -> dict:
     """
     Creates the vectors for a reconstruction dataset based on Run 2 MC.
     """
     # leptons_masses = physics.masses_from_pdgids(data_info["lepton_pdgids"])
-    leptons_masses = masses_from_pdgids(data_info["lepton_pdgids"])
+    leptons_masses = physics.masses_from_pdgids(data_info["lepton_pdgids"])
     all_leptons = vector.Array(ak.zip({
         "pt": data_info["lepton_pts"],
         "eta": data_info["lepton_etas"],
@@ -208,10 +236,8 @@ def create_vectors_run2(data_info: ak.Array) -> dict:
         "phi": selected_data["met_phi"].to_numpy()[:, np.newaxis],
     })
 
-    # gen_l_masses = physics.masses_from_pdgids(selected_data["gen_l_pdgid"]).to_numpy()
-    # gen_lbar_masses = physics.masses_from_pdgids(selected_data["gen_lbar_pdgid"]).to_numpy()
-    gen_l_masses = masses_from_pdgids(selected_data["gen_l_pdgid"]).to_numpy()
-    gen_lbar_masses = masses_from_pdgids(selected_data["gen_lbar_pdgid"]).to_numpy()
+    gen_l_masses = physics.masses_from_pdgids(selected_data["gen_l_pdgid"]).to_numpy()
+    gen_lbar_masses = physics.masses_from_pdgids(selected_data["gen_lbar_pdgid"]).to_numpy()
 
     vector_info = {
         "reco": {
@@ -253,7 +279,7 @@ def create_vectors_run2(data_info: ak.Array) -> dict:
 
     return vector_info
 
-def create_vectors_run3(data_info: ak.Array) -> dict:
+def _create_vectors_run3(data_info: ak.Array) -> dict:
     """
     Creates the vectors for a reconstruction dataset based on Run 3 MC.
     """
@@ -274,6 +300,10 @@ def create_vectors_run3(data_info: ak.Array) -> dict:
         "phi": data_info["met_phi"].to_numpy()[:, np.newaxis],
     })
 
+    gen_l_masses = physics.masses_from_pdgids(data_info["gen_l_pdgId"]).to_numpy()
+    gen_lbar_masses = physics.masses_from_pdgids(data_info["gen_lbar_pdgId"]).to_numpy()
+    gen_b_masses = np.full(data_info["gen_b_pt"].to_numpy().shape, physics.particle_masses[5], dtype=np.float32)
+
     vector_info = {
         "reco": {
             "jets": jets,
@@ -281,10 +311,10 @@ def create_vectors_run3(data_info: ak.Array) -> dict:
             "met": met,
         },
         "gen": {
-            "l": vector.array({"pt": data_info["gen_l_pt"].to_numpy(), "eta": data_info["gen_l_eta"].to_numpy(), "phi": data_info["gen_l_phi"].to_numpy(), "mass": data_info["gen_l_mass"].to_numpy()}),
-            "lbar": vector.array({"pt": data_info["gen_lbar_pt"].to_numpy(), "eta": data_info["gen_lbar_eta"].to_numpy(), "phi": data_info["gen_lbar_phi"].to_numpy(), "mass": data_info["gen_lbar_mass"].to_numpy()}),
-            "b": vector.array({"pt": data_info["gen_b_pt"].to_numpy(), "eta": data_info["gen_b_eta"].to_numpy(), "phi": data_info["gen_b_phi"].to_numpy(), "mass": data_info["gen_b_mass"].to_numpy()}),
-            "bbar": vector.array({"pt": data_info["gen_bbar_pt"].to_numpy(), "eta": data_info["gen_bbar_eta"].to_numpy(), "phi": data_info["gen_bbar_phi"].to_numpy(), "mass": data_info["gen_bbar_mass"].to_numpy()}),
+            "l": vector.array({"pt": data_info["gen_l_pt"].to_numpy(), "eta": data_info["gen_l_eta"].to_numpy(), "phi": data_info["gen_l_phi"].to_numpy(), "mass": gen_l_masses}),
+            "lbar": vector.array({"pt": data_info["gen_lbar_pt"].to_numpy(), "eta": data_info["gen_lbar_eta"].to_numpy(), "phi": data_info["gen_lbar_phi"].to_numpy(), "mass": gen_lbar_masses}),
+            "b": vector.array({"pt": data_info["gen_b_pt"].to_numpy(), "eta": data_info["gen_b_eta"].to_numpy(), "phi": data_info["gen_b_phi"].to_numpy(), "mass": gen_b_masses}),
+            "bbar": vector.array({"pt": data_info["gen_bbar_pt"].to_numpy(), "eta": data_info["gen_bbar_eta"].to_numpy(), "phi": data_info["gen_bbar_phi"].to_numpy(), "mass": gen_b_masses}),
             "nu": vector.array({"pt": data_info["gen_nu_pt"].to_numpy(), "eta": data_info["gen_nu_eta"].to_numpy(), "phi": data_info["gen_nu_phi"].to_numpy(), "mass": np.zeros_like(data_info["gen_nu_pt"].to_numpy())}),
             "nubar": vector.array({"pt": data_info["gen_nubar_pt"].to_numpy(), "eta": data_info["gen_nubar_eta"].to_numpy(), "phi": data_info["gen_nubar_phi"].to_numpy(), "mass": np.zeros_like(data_info["gen_nubar_pt"].to_numpy())}),
             "top": vector.array({"pt": data_info["gen_top_pt"].to_numpy().squeeze(), "eta": data_info["gen_top_eta"].to_numpy().squeeze(), "phi": data_info["gen_top_phi"].to_numpy().squeeze(), "mass": data_info["gen_top_mass"].to_numpy().squeeze()}),
@@ -301,9 +331,52 @@ def create_vectors_run3(data_info: ak.Array) -> dict:
 
     return vector_info
 
-def create_vectors(data_info, eras_included):
-    is_run2 = get_common_run_for_eras(eras_included) == 2
+def create_reconstruction_vectors(data_info: ak.Array, eras_included: List[str]) -> dict:
+    """
+    A convenience for creating the reconstruction vectors, that will detect whether
+    Run 2 or Run 3 data is being used, based on `eras_included`.
+    """
+    is_run2 = _get_common_run_for_eras(eras_included) == 2
     if is_run2:
-        return create_vectors_run2(data_info)
+        return _create_vectors_run2(data_info)
     else:
-        return create_vectors_run3(data_info)
+        return _create_vectors_run3(data_info)
+
+def load_reconstruction_vectors(
+    eras: List[str],
+    version: Optional[str] = "March2026",
+    base_dir: Optional[str] = "/store/users/jduarteq",
+    use_eos: Optional[bool] = True,
+    suffix: Optional[str] = "ttBar_treeVariables_step7"
+) -> dict:
+    """
+    Loads reconstruction vectors for specified eras, and optionally other specifications.
+    Notably, both Run 2 and Run 3 eras can be given at once, and the concatenated
+    reconstruction-appropriate vectors will be returned.
+    """
+    run2_eras = [era for era in eras if era in run2_eras]
+    run3_eras = [era for era in eras if era in run3_eras]
+    
+    if (len(run2_eras) > 0) and (len(run3_eras) > 0):
+        run2_data = load_nominal_ttbar_reconstruction_data(run2_eras, version, base_dir, use_eos, suffix)
+        run2_vectors = _create_vectors_run2(run2_data)
+
+        run3_data = load_nominal_ttbar_reconstruction_data(run3_eras, version, base_dir, use_eos, suffix)
+        run3_vectors = _create_vectors_run3(run3_data)
+
+        combined_vectors = {}
+        for outer_key in run2_vectors.keys():
+            combined_vectors[outer_key] = {}
+            for inner_key in run2_vectors[outer_key].keys():
+                combined_vectors[outer_key][inner_key] = ak.concatenate([run2_vectors[outer_key][inner_key], run3_vectors[outer_key][inner_key]], axis=0)
+        return combined_vectors
+    
+    elif (len(run2_eras) > 0):
+        run2_data = load_nominal_ttbar_reconstruction_data(run2_eras, version, base_dir, use_eos, suffix)
+        return _create_vectors_run2(run2_data)
+    
+    elif (len(run3_eras) > 0):
+        run3_data = load_nominal_ttbar_reconstruction_data(run3_eras, version, base_dir, use_eos, suffix)
+        return _create_vectors_run3(run3_data)
+    
+    raise ValueError(f"No valid eras provided. Eras must be from either Run 2 or Run 3.")
