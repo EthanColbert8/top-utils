@@ -23,6 +23,7 @@ class SpinObservables:
     cnr: Optional[Union[np.ndarray, ak.Array]] = None
     cHel: Optional[Union[np.ndarray, ak.Array]] = None
     cHan: Optional[Union[np.ndarray, ak.Array]] = None
+    cTilde: Optional[Union[np.ndarray, ak.Array]] = None
 
 def compute_spin_polarizations(
     top: Union[vector.MomentumNumpy4D, ak.Array],
@@ -107,6 +108,7 @@ def compute_partial_spin_observables(
 
     polarizations.cHel = -(polarizations.ckk + polarizations.crr + polarizations.cnn)
     # polarizations.cHan = polarizations.ckk - polarizations.crr - polarizations.cnn
+    polarizations.cTilde = -(polarizations.ckk + polarizations.crr - polarizations.cnn)
 
     return polarizations
 
@@ -124,5 +126,6 @@ def compute_all_spin_observables(
 
     correlations.cHel = -(correlations.ckk + correlations.crr + correlations.cnn)
     correlations.cHan = correlations.ckk - correlations.crr - correlations.cnn
+    correlations.cTilde = -(correlations.ckk + correlations.crr - correlations.cnn)
 
     return correlations

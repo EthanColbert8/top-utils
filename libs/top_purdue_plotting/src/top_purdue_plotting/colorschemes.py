@@ -56,4 +56,6 @@ process_colors = {
     "vv": alt_gray,
 
     "wjets": alt_darkgray,
+    
+    "zjets": alt_brown,
 }
