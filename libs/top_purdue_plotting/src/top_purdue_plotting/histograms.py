@@ -22,15 +22,15 @@ method_histplot_types = {
 
 def plot_1d_hists_overlay(
     hists: Dict[str, Hist],
-    x_label: Optional[str] = "UNKNOWN",
+    x_label: Optional[str] = None,
     save_filename: Optional[str] = None,
     density: Optional[bool] = False,
     binwnorm: Optional[float] = None,
     yscale: Optional[str] = "linear",
     ratio_key: Optional[str] = None,
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
-    cms_text: Optional[str] = "Work in Progress",
-    lumi_text: Optional[str] = "2017UL",
+    # cms_text: Optional[str] = "Work in Progress",
+    # lumi_text: Optional[str] = "2017UL",
     x_units: Optional[str] = "",
     img_type: Optional[str] = "png"
 ):
@@ -41,9 +41,13 @@ def plot_1d_hists_overlay(
 
     y_label = "Density" if density else "Events"
     if (binwnorm is not None):
-        y_label += f" / {binwnorm} {x_units}".strip()
+        y_label += f" / {binwnorm} {x_units}".rstrip()
 
-    bin_edges = hists[list(hists.keys())[0]].axes[0].edges
+    an_axis = hists[list(hists.keys())[0]].axes[0]
+    bin_edges = an_axis.edges
+
+    if (x_label is None):
+        x_label = an_axis.label if (an_axis.label != "") else an_axis.name
 
     if use_ratio:
         fig, (ax_main, ax_ratio) = plt.subplots(2, 1, gridspec_kw={"height_ratios": [3, 1], "hspace": 0.1}, sharex=True, dpi=100)
@@ -61,7 +65,8 @@ def plot_1d_hists_overlay(
 
         if (use_ratio and (method != ratio_key)):
             ratio_values = histogram.values() / hists[ratio_key].values()
-            # ax_ratio.stairs(ratio_values, bin_edges, ax=ax_ratio, color=current_color)
+            
+            # if we're plotting an overlay, probably don't care about ratio uncertainties
             ax_ratio.stairs(ratio_values, bin_edges, color=current_color)
 
     ax_main.set_xlim(bin_edges[0], bin_edges[-1])
