@@ -6,6 +6,7 @@ import mplhep as hep
 from typing import Dict, Optional
 
 from . import colorschemes
+from . import labels
 
 plt.style.use(hep.style.CMS)
 
@@ -197,5 +198,165 @@ def plot_2d_hist(
         plt.savefig(f"{save_filename}.{img_type}", dpi="figure")
     else:
         plt.show()
+    
+    plt.close()
+
+def plot_1d_hists_stacked(
+    hists: Dict[str, Hist],
+    syst_uncertainties_hists: Optional[Dict[str, Hist]] = None,
+    data_hist: Optional[Hist] = None,
+    x_label: Optional[str] = None,
+    save_filename: Optional[str] = None,
+    binwnorm: Optional[float] = None,
+    yscale: Optional[str] = "linear",
+    colors: Optional[dict] = colorschemes.process_colors,
+    cms_text: Optional[str] = "Work in Progress",
+    cms_lumi: Optional[float] = 41.48,
+    x_units: Optional[str] = "",
+    img_type: Optional[str] = "png"
+):
+    """
+    
+    """
+
+    # Check if there is data needs to be plotted
+    data_used = (data_hist is not None)
+
+    # Check the type of plot to make, ratio/non-ratio
+    if data_used: # make ratio plot for data/MC
+        fig, (ax_main, ax_ratio) = plt.subplots(2, 1, figsize=(12, 12), gridspec_kw=dict(height_ratios=[3, 1], hspace=0.1), sharex=True)
+    else: # if only MC, no ratio 
+        fig, ax_main = plt.subplots(dpi=100)
+        ax_ratio = ax_main
+
+    # Set plot frame with cms text, center-of-mass energy and lumi.
+    hep.cms.label(cms_text, lumi=cms_lumi, com=13, ax=ax_main, data=data_used)
+
+    # Set list of MC hists, legends, and color for each contribution, and bin edges.
+    histograms_list = list(hists.values())
+    legend_entries = list(hists.keys())
+    legend_labels = [labels.get_process_label(label) for label in legend_entries]
+    colors_list = [colors.get(label, None) for label in legend_entries]
+    bin_edges = histograms_list[0].axes[0].edges
+
+    # Plot stacked MC hists
+    hep.histplot(histograms_list, ax=ax_main, stack=True, histtype='fill', sort='yield', density=False, binwnorm=binwnorm, color=colors_list, label=legend_labels, edgecolor='black', linewidth=0.5)
+
+    # Sum MC hists
+    total_mc_hist = sum(histograms_list)
+
+    # Plot MC uncertainties as bands. NOTE: untested
+    if (syst_uncertainties_hists is None):
+        total_uncertainty_up = np.sqrt(total_mc_hist.variances())
+        total_uncertainty_down = total_uncertainty_up
+    else:
+        syst_uncertainty_up = np.sum(np.square(np.stack([x[0] for x in syst_uncertainties_hists.values()])), axis=0)
+        syst_uncertainty_down = np.sum(np.square(np.stack([x[1] for x in syst_uncertainties_hists.values()])), axis=0)
+
+        #print(f"Syst uncertainty on {save_filename}: up={np.sqrt(syst_uncertainty_up) / total_mc_hist.values()}, down={np.sqrt(syst_uncertainty_down) / total_mc_hist.values()}")
+
+        total_uncertainty_up = np.sqrt(total_mc_hist.variances() + syst_uncertainty_up)
+        total_uncertainty_down = np.sqrt(total_mc_hist.variances() + syst_uncertainty_down)
+    
+    unc_upper_values = total_mc_hist.values() + total_uncertainty_up
+    unc_lower_values = total_mc_hist.values() - total_uncertainty_down
+
+    if (binwnorm is None):
+        binwnorm_divisor = 1.0
+    else:
+        binwnorm_divisor = np.diff(total_mc_hist.axes[0].edges) / binwnorm
+
+    ax_main.stairs(values=unc_upper_values/binwnorm_divisor, baseline=unc_lower_values/binwnorm_divisor, edges=total_mc_hist.axes[0].edges, label=r"Stat $\oplus$ Syst",
+                   color='k', alpha=0.75, hatch='////', lw=0, facecolor='none')
+    
+    # Plot data and ratio 
+    if data_used: 
+        # Plot data
+        hep.histplot(data_hist, ax=ax_main, yerr=True, xerr=True, stack=False, histtype='errorbar', density=False, binwnorm=binwnorm, color=colors.get('data', None), label='Data')
+
+        # Calculate ratio and ratio uncertainty
+        # denom = total_mc_hist.values()
+        # denom[denom<0.1] = 0.1
+        # ratio = data.values() / denom
+        # ratio_err = np.sqrt((np.sqrt(data.variances()) / denom) ** 2 + (data.values() * np.sqrt(total_mc_hist.variances()) / denom ** 2) ** 2)
+        # ratio_err = np.sqrt(((data.variances() / np.square(data.values())) + (total_mc_hist.variances() / np.square(total_mc_hist.values()))).astype(float)) # YY: check the ratio calculation, is it right?
+        
+        total_mc_hist_denom = np.where(total_mc_hist.values() < 0.01, 0.01, total_mc_hist.values()) # avoid division by zero
+        #data_relative_variance = data.variances() / np.square(np.where(data.values() < 0.01, 0.01, data.values()))
+        data_relative_error = np.sqrt(data_hist.variances()) / np.where(data_hist.values() < 0.01, 0.01, data_hist.values())
+
+        ratio = data_hist.values() / total_mc_hist_denom
+        # ratio_err_up = ratio * np.sqrt(data_relative_variance + np.square(total_uncertainty_up / total_mc_hist_denom))
+        # ratio_err_down = ratio * np.sqrt(data_relative_variance + np.square(total_uncertainty_down / total_mc_hist_denom))
+
+        #hep.histplot(ratio, ax=ax_ratio, histtype='errorbar', color=colors.get('data', None), label='Data/MC', yerr=ratio_err)
+        #hep.histplot(ratio, ax=ax_ratio, histtype='errorbar', color=colors.get('data', None), label='Data/MC')
+        # Use "xerr" to show bin width in ratio plot
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+        # ax_ratio.errorbar(bin_centers, ratio, xerr=(np.diff(bin_edges)/2), yerr=np.stack([ratio_err_down, ratio_err_up]), fmt='o', color=colors.get('data', None), label='Data/MC')
+        ax_ratio.errorbar(bin_centers, ratio, xerr=(np.diff(bin_edges)/2), yerr=data_relative_error, fmt='o', color=colors.get('data', None))#, label='Data/MC')
+        
+        # highlight unity line
+        ax_ratio.axhline(y=1.0, color='black', linestyle='--', lw=2) 
+        # ax_ratio y label and lim
+        ax_ratio.set_ylabel("Data/MC")
+        ax_ratio.set_ylim(bottom=0.75, top=1.25)
+        # Plot ratio
+        # hep.histplot(ratio, total_mc_hist.axes[0].edges, ax=ax_ratio, histtype='errorbar', color='k', yerr=False, xerr=True)
+        # Add uncertainties manually as a block on MCs in the ratio plot.
+        ax_ratio.stairs(
+            values=1 + (total_uncertainty_up / total_mc_hist_denom),
+            baseline=1 - (total_uncertainty_down / total_mc_hist_denom),
+            edges=total_mc_hist.axes[0].edges, 
+            color='silver', 
+            fill=True, 
+            label=r'MC Stat $\oplus$ Syst'
+        )
+        # ax_ratio legend
+        ax_ratio.legend(loc='best', ncol=2) # ncol=2
+
+    # ax_main: x label
+    ax_main.set_xlabel('') # remove the ax_main label and axes number
+
+    # ax_ratio: x label
+    if (x_label is None):
+        x_label = histograms_list[0].axes[0].name
+    ax_ratio.set_xlabel(labels.get_var_label(x_label))
+
+    # ax_main: y label and y scale, and lim
+    if (binwnorm is not None):
+        ax_main.set_ylabel("Events / " + str(binwnorm) + " " + x_units)
+    else:
+        ax_main.set_ylabel("Events")
+    ax_main.set_yscale(yscale)
+    if binwnorm is None:
+        tmp_binwnorm = np.diff(total_mc_hist.axes[0].edges)
+    else:
+        tmp_binwnorm = binwnorm * np.ones(np.diff(total_mc_hist.axes[0].edges).shape)
+    if yscale == 'linear':
+        ax_main.set_ylim(0, np.max(total_mc_hist.values()/np.diff(total_mc_hist.axes[0].edges)*tmp_binwnorm)*1.5) # leave space for the legend
+    elif yscale == 'log':
+        ax_main.set_ylim(0.1, np.max(total_mc_hist.values()/np.diff(total_mc_hist.axes[0].edges)*tmp_binwnorm)*50) # leave space for the legend
+
+    if (xlim is None):
+        xlim = (bin_edges[0], bin_edges[-1])
+    ax_main.set_xlim(left=xlim[0], right=xlim[1])
+
+    # If limits are multiples of pi, set ticks and tick labels to
+    # multiples of pi/2
+    #if ((xlim[0] == -np.pi) or (xlim[1] == np.pi)):
+    if (xlim[1] % np.pi == 0):
+        x_ticks = np.arange(xlim[0], xlim[1] + 0.1, np.pi/2)
+        #print(x_ticks)
+        ax_main.set_xticks(x_ticks)
+        ax_main.set_xticklabels([r"$-\pi$", r"$-\frac{\pi}{2}$", r"$0$", r"$\frac{\pi}{2}$", r"$\pi$"])
+
+    # ax_main: legend
+    ax_main.legend(loc='upper left', ncol=3)
+
+    if (save_filename is not None):
+        plt.savefig(f"{save_filename}.{img_type}", dpi='figure')  
+    else:
+        plt.show()  
     
     plt.close()

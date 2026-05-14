@@ -58,5 +58,6 @@ process_colors = {
 
     "wjets": alt_darkgray,
     
-    "zjets": alt_brown,
+    # This is Wjets + Drell-Yan
+    "vjets": alt_brown,
 }
