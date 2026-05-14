@@ -19,6 +19,7 @@ alt_cyan = "#92dadd"
 reconstruction_method_colors = {
     "transformer": main_blue,
     "nu2flows": main_maroon,
+    "solver": main_purple,
     "hybrid": main_purple,
     "mlp": main_orange,
     "mlb_weighting": main_red,

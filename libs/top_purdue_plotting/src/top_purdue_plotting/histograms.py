@@ -10,15 +10,25 @@ from . import colorschemes
 plt.style.use(hep.style.CMS)
 
 method_histplot_types = {
-    "Solver": "step",
-    "Feedforward": "step",
-    "Nu2Flows": "step",
+    "solver": "step",
+    "feedforward": "step",
+    "mlp": "step",
+    "transformer": "step",
+    "hybrid": "step",
+    "nu2flows": "step",
     "mlb_weighting": "step",
+    
     "gen": "fill",
+    "true": "fill",
+    "truth": "fill",
+    "target": "fill",
 
     "Original": "fill",
     "Resampled": "step",
 }
+
+run2_eras = set(["2016preVFP", "2016postVFP", "2016", "2017", "2018", "Run 2", "Full Run 2"])
+run3_eras = set(["2022preEE", "2022postEE", "2022", "2023preBPix", "2023postBPix", "2023"]) # TODO: Add 2024, 2025, full eras
 
 def plot_1d_hists_overlay(
     hists: Dict[str, Hist],
@@ -29,13 +39,16 @@ def plot_1d_hists_overlay(
     yscale: Optional[str] = "linear",
     ratio_key: Optional[str] = None,
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
-    # cms_text: Optional[str] = "Work in Progress",
-    # lumi_text: Optional[str] = "2017UL",
+    cms_text: Optional[str] = "Work in Progress",
+    cms_year: Optional[str] = "2022",
     x_units: Optional[str] = "",
     img_type: Optional[str] = "png"
 ):
     """
-
+    Plots multiple 1D histograms overlayed on the same axes, optionally with a ratio to one of them underneath.
+    Takes (at least) a dictionary of histograms, where keys are names for the plot legend and values are Hist objects.
+    If one of the keys is \"gen\" or \"truth\", will be plotted as a \"filled\" histogram. Others will be
+    step (skyline) style plots.
     """
     use_ratio = ratio_key is not None
 
@@ -82,9 +95,13 @@ def plot_1d_hists_overlay(
 
     ax_main.legend()
 
-    # TODO: Convert to new mplhep API
-    # hep.cms.text(cms_text, ax=ax_main)
-    # hep.cms.lumitext(lumi_text, ax=ax_main)
+    # CMS labelling
+    com_energy = None
+    if cms_year in run2_eras:
+        com_energy = 13
+    elif cms_year in run3_eras:
+        com_energy = 13.6
+    hep.cms.label(cms_text, loc=0, data=False, year=cms_year, com=com_energy, ax=ax_main)
 
     if (save_filename is not None):
         plt.savefig(f"{save_filename}.{img_type}", dpi="figure")
@@ -102,12 +119,19 @@ def plot_2d_hist(
     y_label: Optional[str] = None,
     save_filename: Optional[str] = None,
     density: Optional[bool] = False,
+    show_cbar: Optional[bool] = True,
+    cbar_min: Optional[float] = None,
+    cbar_max: Optional[float] = None,
     cms_text: Optional[str] = "Work in Progress",
-    lumi_text: Optional[str] = "2017UL",
+    cms_year: Optional[str] = "2022",
     img_type: Optional[str] = "png"
 ):
     """
-
+    Plots a 2D histogram using the \"Viridis\" colormap (recommended by CMS).
+    Can optionally:
+    - Normalize to density
+    - Plot a unity line (y=x) for reference
+    - Use logarithmic color scaling
     """
     if density:
         real_histogram = histogram.copy()
@@ -144,7 +168,7 @@ def plot_2d_hist(
 
     fig, ax = plt.subplots(dpi=100)
 
-    hep.hist2dplot(real_histogram, ax=ax, norm=scale, cmap="viridis")
+    hep.hist2dplot(real_histogram, ax=ax, norm=scale, cmap="viridis", cbar=show_cbar, cmin=cbar_min, cmax=cbar_max)
 
     if plot_unity:
         limits = [xmin, xmax]
@@ -154,18 +178,20 @@ def plot_2d_hist(
     ax.set_ylim(ymin, ymax)
 
     if (x_label is None):
-        x_label = histogram.axes[0].label
-    else:
-        ax.set_xlabel(x_label)
+        x_label = histogram.axes[0].label if histogram.axes[0].label != "" else histogram.axes[0].name
+    ax.set_xlabel(x_label)
     
     if (y_label is None):
-        y_label = histogram.axes[1].label
-    else:
-        ax.set_ylabel(y_label)
+        y_label = histogram.axes[1].label if histogram.axes[1].label != "" else histogram.axes[1].name
+    ax.set_ylabel(y_label)
 
-    # TODO: Convert to new mplhep API
-    # hep.cms.text(cms_text, ax=ax)
-    # hep.cms.lumitext(lumi_text, ax=ax)
+    # CMS labelling
+    com_energy = None
+    if cms_year in run2_eras:
+        com_energy = 13
+    elif cms_year in run3_eras:
+        com_energy = 13.6
+    hep.cms.label(cms_text, loc=0, data=False, year=cms_year, com=com_energy, ax=ax)
 
     if (save_filename is not None):
         plt.savefig(f"{save_filename}.{img_type}", dpi="figure")
