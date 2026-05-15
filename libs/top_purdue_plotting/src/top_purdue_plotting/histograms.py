@@ -8,8 +8,6 @@ from typing import Dict, Optional
 from . import colorschemes
 from . import labels
 
-plt.style.use(hep.style.CMS)
-
 method_histplot_types = {
     "solver": "step",
     "feedforward": "step",
