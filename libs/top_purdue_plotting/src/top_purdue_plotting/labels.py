@@ -181,11 +181,22 @@ process_labels["singletop"] = process_labels["tw"]
 process_labels["toponium"] = process_labels["etat"]
 process_labels["zjets"] = process_labels["dy"]
 
-def get_var_label(var_name):
+method_labels = {
+    "mlb_weighting": r"$m_{lb}$-weighting",
+}
+method_labels["mlb_reweighting"] = method_labels["mlb_weighting"]
+
+######## FUNCTIONS TO RETRIEVE VALUES ########
+# These are convenience functions for retrieving labels from the
+# above dictionaries which treat missing keys as a no-op. They
+# should be preferred above using the dictionaries directly.
+
+def get_var_label(var_name: str) -> str:
     """
     Returns the variable label in LaTeX syntax for a given variable name,
     else the variable name itself (if not found).
     """
+    # NOTE: can't do lowercasing because there are some capital letters in keys
     return physics_var_labels.get(var_name, var_name)
 
 def get_process_label(process_name: str) -> str:
@@ -193,4 +204,11 @@ def get_process_label(process_name: str) -> str:
     Returns the process label in LaTeX syntax for a given process name,
     else the process name itself (if not found).
     """
-    return process_labels.get(process_name, process_name)
+    return process_labels.get(process_name.lower(), process_name)
+
+def get_method_label(method_name: str) -> str:
+    """
+    Returns the method label in LaTeX syntax for a given method name,
+    else the method name itself (if not found).
+    """
+    return method_labels.get(method_name.lower(), method_name)

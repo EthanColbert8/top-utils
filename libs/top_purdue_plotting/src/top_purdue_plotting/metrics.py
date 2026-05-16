@@ -39,8 +39,13 @@ def plot_binned_metric(
         ax_ratio = ax_main
 
     for method, values in metric_values.items():
-        ax_main.errorbar(bin_centers, values, xerr=bin_half_widths, fmt="o", label=method, color=colors.get(method, "black"))
+        ax_main.errorbar(bin_centers, values, xerr=bin_half_widths,
+            fmt="o", label=labels.get_method_label(method),
+            color=colors.get(method, "black")
+        )
     
+        # TODO: actually plot the ratios lmao
+
     if (hline is not None):
         ax_main.axhline(y=hline, color="gray", linestyle="--")
     if (vline is not None):
@@ -135,15 +140,12 @@ def plot_binned_rmse_bias(
         value = value[weight<0]
         weight = weight[weight<0]
         
-        counts, _, patches = ax.hist(value,
-                               bins=bin_edges, 
-                               weights=np.abs(weight), # absolute value of bias
-                               histtype='step',
-                               edgecolor=colors.get(key, "black"),
-                               lw=2,
-                               label=LEGEND_LABELS.get(key,key), 
-                               linestyle='--',
-                               color=colors.get(key, "black"))
+        counts, _, patches = ax.hist(value, bins=bin_edges, 
+            weights=np.abs(weight), # absolute value of bias
+            histtype='step', edgecolor=colors.get(key, "black"), lw=2,
+            label=labels.get_method_label(key),
+            linestyle='--', color=colors.get(key, "black")
+        )
 
     # line at y = 0
     plt.axhline(y=0, color='black', linestyle='-', linewidth=3.0) 
@@ -153,12 +155,12 @@ def plot_binned_rmse_bias(
         value = (bin_edges[1:] + bin_edges[:-1])/2
         bin_centers = value
         bin_widths = bin_edges[1:] - bin_edges[:-1]
-        plt.plot(value, 
-                 weight, 
-                 marker='^', markersize=4, 
-                 color=colors.get(key, "black"), 
-                 linestyle='None', 
-                 label=LEGEND_LABELS.get(key,key))
+        plt.plot(value, weight, 
+            marker='^', markersize=4, 
+            color=colors.get(key, "black"), 
+            linestyle='None', 
+            label=labels.get_method_label(key)
+        )
         if weight.min() < min_height:
             min_height = weight.min()
         

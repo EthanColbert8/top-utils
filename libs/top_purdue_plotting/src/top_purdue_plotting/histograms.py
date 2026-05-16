@@ -73,7 +73,11 @@ def plot_1d_hists_overlay(
     for method, histogram in hists.items():
         current_color = colors.get(method, "black")
         
-        hep.histplot(histogram, ax=ax_main, stack=False, histtype=method_histplot_types.get(method, "step"), density=density, binwnorm=binwnorm, color=current_color, label=method)
+        hep.histplot(histogram, ax=ax_main,
+            stack=False, histtype=method_histplot_types.get(method, "step"),
+            density=density, binwnorm=binwnorm,
+            color=current_color, label=labels.get_method_label(method)
+        )
 
         if (use_ratio and (method != ratio_key)):
             ratio_values = histogram.values() / hists[ratio_key].values()
@@ -88,6 +92,9 @@ def plot_1d_hists_overlay(
         ax_main.set_ylim(bottom=1.0e-5)
     elif (yscale == "linear"):
         ax_main.set_ylim(bottom=0.0)
+
+    # x-axis is shared with ratio plot, so clear this label
+    ax_main.set_xlabel("")
 
     ax_ratio.set_xlabel(labels.get_var_label(x_label))
     ax_main.set_ylabel(y_label)
