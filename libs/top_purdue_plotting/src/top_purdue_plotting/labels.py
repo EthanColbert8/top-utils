@@ -185,6 +185,8 @@ method_labels = {
     "mlb_weighting": r"$m_{lb}$-weighting",
 }
 method_labels["mlb_reweighting"] = method_labels["mlb_weighting"]
+method_labels["mlb-weighting"] = method_labels["mlb_weighting"]
+method_labels["mlb-reweighting"] = method_labels["mlb_reweighting"]
 
 ######## FUNCTIONS TO RETRIEVE VALUES ########
 # These are convenience functions for retrieving labels from the

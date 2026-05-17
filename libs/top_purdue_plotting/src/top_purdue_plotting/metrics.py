@@ -3,6 +3,10 @@ from matplotlib import pyplot as plt
 import mplhep as hep
 from typing import Dict, Optional
 
+# Extra matplotlib imports that Yao used
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
+
 from . import colorschemes
 from . import labels
 
@@ -84,7 +88,6 @@ def plot_binned_rmse_bias(
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
     save_filename: Optional[str] = None,
     era='2017',
-    name_addition='',
     legend_loc=0,
     img_type: Optional[str] = "png"
 ):
@@ -167,14 +170,12 @@ def plot_binned_rmse_bias(
     # RMSE
     for index, (key, weight) in enumerate(rmse_hist_dict.items()):
         value = (bin_edges[1:] + bin_edges[:-1])/2
-        counts, _, patches = ax.hist(value,
-                               bins=bin_edges, 
-                               weights=weight,
-                               histtype='step', 
-                               edgecolor=colors.get(key, "black"), 
-                               lw=2.5,
-                               facecolor="none", 
-                               label=LEGEND_LABELS.get(key,key))
+        counts, _, patches = ax.hist(value, bins=bin_edges, weights=weight,
+            histtype='step', edgecolor=colors.get(key, "black"), lw=2.5, facecolor="none", 
+            label=labels.get_method_label(key)
+        )
+        
+        
         if counts.max() > max_height:
             max_height = counts.max()
 
@@ -195,7 +196,7 @@ def plot_binned_rmse_bias(
     custom_patch_mlp = Patch(facecolor='#ffa90e', alpha = 0.7, edgecolor='#ffa90e', 
                              label='MLP')
     custom_patch_mlb = Patch(facecolor='#bd1f01', alpha = 0.7, edgecolor='#bd1f01', 
-                             label=LEGEND_LABELS.get('mlb-weighting','mlb-weighting'))
+                             label=labels.get_method_label("mlb_weighting"))
     custom_patch_tf = Patch(facecolor='#3f90da', alpha = 0.7, edgecolor='#3f90da', 
                             label='Transformer')
 
@@ -234,7 +235,7 @@ def plot_binned_rmse_bias(
     # Set x axis
     ax.set_xlim(bin_edges[0], bin_edges[-1])
     xlabel_tot = xlabel.split()
-    xlabel_tot = [AXIS_LABELS.get(x, x) for x in xlabel_tot]
+    xlabel_tot = [labels.get_var_label(x) for x in xlabel_tot]
     xlabel_tot = ' '.join(xlabel_tot)
     ax.set_xlabel(xlabel_tot, fontsize=30)
     ax.tick_params(axis='both', labelsize=28)
