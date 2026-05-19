@@ -26,9 +26,6 @@ method_histplot_types = {
     "Resampled": "step",
 }
 
-run2_eras = set(["2016preVFP", "2016postVFP", "2016", "2017", "2018", "Run 2", "Full Run 2"])
-run3_eras = set(["2022preEE", "2022postEE", "2022", "2023preBPix", "2023postBPix", "2023"]) # TODO: Add 2024, 2025, full eras
-
 def plot_1d_hists_overlay(
     hists: Dict[str, Hist],
     x_label: Optional[str] = None,
@@ -102,11 +99,10 @@ def plot_1d_hists_overlay(
     ax_main.legend()
 
     # CMS labelling
-    com_energy = None
-    if cms_year in run2_eras:
-        com_energy = 13
-    elif cms_year in run3_eras:
-        com_energy = 13.6
+    try:
+        com_energy = labels.get_com_energy(cms_year)
+    except ValueError:
+        com_energy = None
     hep.cms.label(cms_text, loc=0, data=False, year=cms_year, com=com_energy, ax=ax_main)
 
     if (save_filename is not None):
@@ -192,11 +188,10 @@ def plot_2d_hist(
     ax.set_ylabel(labels.get_var_label(y_label))
 
     # CMS labelling
-    com_energy = None
-    if cms_year in run2_eras:
-        com_energy = 13
-    elif cms_year in run3_eras:
-        com_energy = 13.6
+    try:
+        com_energy = labels.get_com_energy(cms_year)
+    except ValueError:
+        com_energy = None
     hep.cms.label(cms_text, loc=0, data=False, year=cms_year, com=com_energy, ax=ax)
 
     if (save_filename is not None):

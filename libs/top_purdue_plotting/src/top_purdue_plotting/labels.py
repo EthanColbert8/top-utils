@@ -188,6 +188,26 @@ method_labels["mlb_reweighting"] = method_labels["mlb_weighting"]
 method_labels["mlb-weighting"] = method_labels["mlb_weighting"]
 method_labels["mlb-reweighting"] = method_labels["mlb_reweighting"]
 
+run2_eras = {
+    "2016preVFP",
+    "2016postVFP",
+    "2016",
+    "2017",
+    "2018",
+    "Run 2",
+    "Full Run 2",
+}
+run3_eras = {
+    "2022preEE",
+    "2022postEE",
+    "2022",
+    "2023preBPix",
+    "2023postBPix",
+    "2023",
+    "2024",
+    "2025",
+}
+
 ######## FUNCTIONS TO RETRIEVE VALUES ########
 # These are convenience functions for retrieving labels from the
 # above dictionaries which treat missing keys as a no-op. They
@@ -214,3 +234,14 @@ def get_method_label(method_name: str) -> str:
     else the method name itself (if not found).
     """
     return method_labels.get(method_name.lower(), method_name)
+
+def get_com_energy(era: str) -> float:
+    """
+    Gets the center-of-mass energy for a given era string, raising an
+    error if the era is not recognized.
+    """
+    if (era in run2_eras):
+        return 13.0
+    if (era in run3_eras):
+        return 13.6
+    raise ValueError(f"era \"{era}\" not recognized as Rune 2 or Run 3")

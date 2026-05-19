@@ -43,12 +43,17 @@ def plot_binned_metric(
         ax_ratio = ax_main
 
     for method, values in metric_values.items():
+        current_color = colors.get(method, "black")
+
         ax_main.errorbar(bin_centers, values, xerr=bin_half_widths,
-            fmt="o", label=labels.get_method_label(method),
-            color=colors.get(method, "black")
+            fmt="o", color=current_color, label=labels.get_method_label(method)
         )
     
-        # TODO: actually plot the ratios lmao
+        if (use_ratio and (method != ratio_key)):
+            ratio_values = values / metric_values[ratio_key]
+            ax_ratio.errorbar(bin_centers, ratio_values, xerr=bin_half_widths,
+                fmt="o", color=current_color
+            )
 
     if (hline is not None):
         ax_main.axhline(y=hline, color="gray", linestyle="--")
@@ -78,17 +83,16 @@ def plot_binned_metric(
 #               it's really just a nice label for mlb_weighting
 
 def plot_binned_rmse_bias(
-    bias_array_list,
-    rmse_array_list, 
-    method_label_list,
-    bin_edges,
-    xlabel='',
-    ylabel='',
-    ymax=None,
+    bias: Dict[str, np.ndarray],
+    rmse: Dict[str, np.ndarray], 
+    bin_edges: np.ndarray,
+    x_label: Optional[str] = "",
+    y_label: Optional[str] = "",
+    ymax: Optional[float] = None,
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
     save_filename: Optional[str] = None,
-    era='2017',
-    legend_loc=0,
+    era: Optional[str] = "2017",
+    legend_loc: Optional[int] = 0,
     img_type: Optional[str] = "png"
 ):
     """
@@ -102,45 +106,24 @@ def plot_binned_rmse_bias(
                save_folder: path to store output plots
                era: '2016preVFP', '2016postVFP', '2017', '2018' 
     """
-    # set up dict of bias and rmse with each method
-    bias_hist_dict = {}
-    for i in range(len(method_label_list)):
-        bias_hist_dict[method_label_list[i]] = bias_array_list[i]
-    rmse_hist_dict = {}
-    for i in range(len(method_label_list)):
-        rmse_hist_dict[method_label_list[i]] = rmse_array_list[i]
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    # bin_widths = np.diff(bin_edges)
 
     # Identify center-of-mass energy from `era`
-    com = 0
-    if "2016" in era or "2017" in era or "2018" in era: 
-        com = 13
-    elif "2022" in era or "2023" in era or "2024" in era:
-        com = 13.6
-    else:
-        print("Error: not Run 2 or Run 3 era")
-        return
-        
-    # Set plot CMS tdr style
-    plt.style.use(hep.style.CMS)
+    com = labels.get_com_energy(era)
 
     ################ Plot ################
 
     # Set up canvas
     fig, ax = plt.subplots(1, 1, figsize=(9, 7))
-    hep.cms.label(label='Preliminary', data=False, year=era, com=com, loc=0, ax=ax, fontsize=22) 
+    hep.cms.label(label='Preliminary', data=False, year=era, com=com, loc=0, ax=ax, fontsize=22)
 
     max_height = -999
     min_height = 999
 
-    bin_centers = []
-    bin_widths = []
-
     # |biases|
-    for index, (key, weight) in enumerate(bias_hist_dict.items()): 
-        value = (bin_edges[1:] + bin_edges[:-1])/2
-        bin_centers = value
-        bin_widths = bin_edges[1:] - bin_edges[:-1]
-        value = value[weight<0]
+    for key, weight in bias.items(): 
+        value = bin_centers[weight<0]
         weight = weight[weight<0]
         
         counts, _, patches = ax.hist(value, bins=bin_edges, 
@@ -154,11 +137,8 @@ def plot_binned_rmse_bias(
     plt.axhline(y=0, color='black', linestyle='-', linewidth=3.0) 
     
     # biases
-    for index, (key, weight) in enumerate(bias_hist_dict.items()): 
-        value = (bin_edges[1:] + bin_edges[:-1])/2
-        bin_centers = value
-        bin_widths = bin_edges[1:] - bin_edges[:-1]
-        plt.plot(value, weight, 
+    for key, weight in bias.items():
+        plt.plot(bin_centers, weight, 
             marker='^', markersize=4, 
             color=colors.get(key, "black"), 
             linestyle='None', 
@@ -168,13 +148,11 @@ def plot_binned_rmse_bias(
             min_height = weight.min()
         
     # RMSE
-    for index, (key, weight) in enumerate(rmse_hist_dict.items()):
-        value = (bin_edges[1:] + bin_edges[:-1])/2
-        counts, _, patches = ax.hist(value, bins=bin_edges, weights=weight,
+    for key, weight in rmse.items():
+        counts, _, patches = ax.hist(bin_centers, bins=bin_edges, weights=weight,
             histtype='step', edgecolor=colors.get(key, "black"), lw=2.5, facecolor="none", 
             label=labels.get_method_label(key)
         )
-        
         
         if counts.max() > max_height:
             max_height = counts.max()
@@ -234,7 +212,7 @@ def plot_binned_rmse_bias(
 
     # Set x axis
     ax.set_xlim(bin_edges[0], bin_edges[-1])
-    xlabel_tot = xlabel.split()
+    xlabel_tot = x_label.split()
     xlabel_tot = [labels.get_var_label(x) for x in xlabel_tot]
     xlabel_tot = ' '.join(xlabel_tot)
     ax.set_xlabel(xlabel_tot, fontsize=30)
@@ -242,7 +220,7 @@ def plot_binned_rmse_bias(
     ax.xaxis.set_tick_params(pad=10)
 
     # Set y axis
-    ax.set_ylabel(ylabel, fontsize=30)
+    ax.set_ylabel(y_label, fontsize=30)
     ax.set_ylim(top=1.9 * max_height)
     if legend_loc == 1:
         ax.set_ylim(top=1.75*max_height)
@@ -251,7 +229,7 @@ def plot_binned_rmse_bias(
     ax.set_ylim(bottom=1.2 * min_height)
 
     # Save plot
-    xlabel = xlabel.replace(' ', '_')
+    x_label = x_label.replace(' ', '_')
     
     if (save_filename is not None):
         plt.savefig(f"{save_filename}.{img_type}", dpi="figure", bbox_inches="tight")
