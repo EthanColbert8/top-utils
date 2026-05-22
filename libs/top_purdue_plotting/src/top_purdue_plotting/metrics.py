@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 import mplhep as hep
 from typing import Dict, Optional
 
-# Extra matplotlib imports that Yao used
+# Extra matplotlib imports for RMSE/bias plotting function
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
@@ -20,6 +20,8 @@ def plot_binned_metric(
     ratio_key: Optional[str] = None,
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
     save_filename: Optional[str] = None,
+    cms_text: Optional[str] = "Work in Progress",
+    cms_year: Optional[str] = "2022",
     hline: Optional[float] = None,
     vline: Optional[float] = None,
     img_type: Optional[str] = "png"
@@ -68,6 +70,13 @@ def plot_binned_metric(
 
     ax_main.legend()
 
+    # CMS labelling
+    try:
+        com_energy = labels.get_com_energy(cms_year)
+    except ValueError:
+        com_energy = None
+    hep.cms.label(cms_text, loc=0, data=False, year=cms_year, com=com_energy, ax=ax_main)
+
     if (save_filename is not None):
         plt.savefig(f"{save_filename}.{img_type}", dpi="figure")
     else:
@@ -75,162 +84,116 @@ def plot_binned_metric(
     
     plt.close()
 
-######## NOTES ########
-# from matplotlib.patches import Patch # where Patch comes from
-# from matplotlib.lines import Line2D # where Line2D comes from
-# AXIS_LABELS is variable labels, use labels.get_var_label
-# LEGEND_LABELS is method labels, still need to add this I guess
-#               it's really just a nice label for mlb_weighting
-
 def plot_binned_rmse_bias(
     bias: Dict[str, np.ndarray],
     rmse: Dict[str, np.ndarray], 
     bin_edges: np.ndarray,
     x_label: Optional[str] = "",
     y_label: Optional[str] = "",
-    ymax: Optional[float] = None,
+    # ymax: Optional[float] = None,
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
     save_filename: Optional[str] = None,
-    era: Optional[str] = "2017",
-    legend_loc: Optional[int] = 0,
+    cms_text: Optional[str] = "Work in Progress",
+    cms_year: Optional[str] = "2022",
     img_type: Optional[str] = "png"
 ):
     """
-        It plots RMSE, bias and |bias| for all methods on the same plot.
-        Input: a list of numpy arrays of each method's bias
-               a list of numpy arrays of each method's rmse,
-               a list of labels for each method,
-               xlabel: title for x_axis,
-               ylabel: title for y_axis,
-               ymax: Manually set y axis upper limit
-               save_folder: path to store output plots
-               era: '2016preVFP', '2016postVFP', '2017', '2018' 
+        Plots RMSE, bias and |bias| for all methods on the same plot.
+        Main inputs:
+            a dict of labels and numpy arrays of each method's bias
+            a dict of labels and numpy arrays of each method's rmse,
+            a numpy array of bin edges,
+            x_label: title for x_axis,
+            y_label: title for y_axis,
+            save_filename: path to store output plot
     """
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     # bin_widths = np.diff(bin_edges)
 
-    # Identify center-of-mass energy from `era`
-    com = labels.get_com_energy(era)
-
     ################ Plot ################
-
-    # Set up canvas
     fig, ax = plt.subplots(1, 1, figsize=(9, 7))
-    hep.cms.label(label='Preliminary', data=False, year=era, com=com, loc=0, ax=ax, fontsize=22)
 
-    max_height = -999
-    min_height = 999
+    # max_height = float("-inf")
+    # min_height = float("inf")
 
     # |biases|
-    for key, weight in bias.items(): 
-        value = bin_centers[weight<0]
-        weight = weight[weight<0]
+    for key, weight in bias.items():
+        abs_bias_needed = weight < 0
+
+        value = bin_centers[abs_bias_needed]
+        weight = np.abs(weight[abs_bias_needed])
         
-        counts, _, patches = ax.hist(value, bins=bin_edges, 
-            weights=np.abs(weight), # absolute value of bias
-            histtype='step', edgecolor=colors.get(key, "black"), lw=2,
+        counts, _, patches = ax.hist(value, bins=bin_edges, weights=weight, # absolute value of bias
+            histtype="step", edgecolor=colors.get(key, "black"), lw=2,
             label=labels.get_method_label(key),
-            linestyle='--', color=colors.get(key, "black")
+            linestyle="--", color=colors.get(key, "black")
         )
 
     # line at y = 0
-    plt.axhline(y=0, color='black', linestyle='-', linewidth=3.0) 
+    plt.axhline(y=0, color="black", linestyle="-", linewidth=3.0)
     
     # biases
     for key, weight in bias.items():
-        plt.plot(bin_centers, weight, 
-            marker='^', markersize=4, 
-            color=colors.get(key, "black"), 
-            linestyle='None', 
+        plt.plot(bin_centers, weight,
+            marker="^", markersize=4,
+            color=colors.get(key, "black"),
+            linestyle="None",
             label=labels.get_method_label(key)
         )
-        if weight.min() < min_height:
-            min_height = weight.min()
+
+        # if (weight.min() < min_height):
+        #     min_height = weight.min()
         
     # RMSE
     for key, weight in rmse.items():
         counts, _, patches = ax.hist(bin_centers, bins=bin_edges, weights=weight,
-            histtype='step', edgecolor=colors.get(key, "black"), lw=2.5, facecolor="none", 
+            histtype="step", edgecolor=colors.get(key, "black"), lw=2.5, facecolor="none", 
             label=labels.get_method_label(key)
         )
         
-        if counts.max() > max_height:
-            max_height = counts.max()
+        # if (counts.max() > max_height):
+        #     max_height = counts.max()
 
     ################## Customize Legend ####################
-    # Create legend entries
-    custom_line_rmse = Line2D([0], [0], color='black', linestyle='-', 
-                              label='RMSE')
-    custom_line_bias = Line2D([0], [0], marker='^', color='black', markerfacecolor='black',
-                              markeredgecolor='black', markersize=9, linestyle='None', 
-                              label='Bias')
-    custom_line_absbias = Line2D([0], [0], color='black', linestyle='--', 
-                                 label='|Bias|')
-    custom_patch_blank = Patch(facecolor='none', edgecolor='none', 
-                               label='')
-    custom_patch_tf_only = Patch(facecolor='none', edgecolor='none', 
-                                 label='Transformer reconstruction')
+    # custom_patch_blank = Patch(facecolor="none", edgecolor="none", label="")
+    custom_line_rmse = Line2D([0], [0], color="black", linestyle="-", label="RMSE")
+    custom_line_absbias = Line2D([0], [0], color="black", linestyle="--", label="|Bias|")
+    custom_line_bias = Line2D([0], [0], marker="^", color="black",
+        markerfacecolor="black", markeredgecolor="black", markersize=9, linestyle="None", label="Bias"
+    )
+    
+    all_legend_handles = [custom_line_rmse, custom_line_bias, custom_line_absbias]
+    for method in rmse.keys():
+        method_color = colors.get(method, "black")
+        new_patch = Patch(facecolor=method_color, edgecolor=method_color, label=labels.get_method_label(method), alpha=0.7)
+        all_legend_handles.append(new_patch)
 
-    custom_patch_mlp = Patch(facecolor='#ffa90e', alpha = 0.7, edgecolor='#ffa90e', 
-                             label='MLP')
-    custom_patch_mlb = Patch(facecolor='#bd1f01', alpha = 0.7, edgecolor='#bd1f01', 
-                             label=labels.get_method_label("mlb_weighting"))
-    custom_patch_tf = Patch(facecolor='#3f90da', alpha = 0.7, edgecolor='#3f90da', 
-                            label='Transformer')
+    # enough columns for each to be size 3, plus a column for the shapes
+    num_cols = len(all_legend_handles) // 3
+    if (len(all_legend_handles) % 3 != 0):
+        num_cols += 1
 
-    custom_patch_tf_mlb_fail = Patch(facecolor='#bd1f01', alpha = 0.7, edgecolor='#bd1f01', 
-                                     label='mlb-weighting fail')
-    custom_patch_tf_mlb_succeed = Patch(facecolor='#3f90da', alpha = 0.7, edgecolor='#3f90da', 
-                                        label='mlb-weighting succeed')
+    # Yao also used `bbox_to_anchor` argument for some of her cases for some reason...
+    ax.legend(handles=all_legend_handles, loc="upper right", ncol=num_cols, fontsize=24, columnspacing=0.5)
 
-    # Assemble legends
-    legend_fontsize=24
-    if legend_loc == 0: # for results when mlb-weighting, mlp and transformer exist, for note publication
-        ax.legend(handles=[custom_line_rmse, custom_line_bias, custom_line_absbias, 
-                           custom_patch_mlb, custom_patch_tf, custom_patch_mlp], 
-                  loc='upper right', ncol=2,  fontsize=legend_fontsize, columnspacing=0.5) 
-    elif legend_loc == 1: # special for pz, insert a empty column in the middle, for note publication
-        ax.legend(handles=[custom_patch_mlb, custom_patch_tf, custom_patch_mlp, 
-                           custom_patch_blank, custom_patch_blank, custom_patch_blank, 
-                           custom_line_rmse, custom_line_bias, custom_line_absbias], 
-                  loc='upper left', ncol=3, fontsize=legend_fontsize, columnspacing=1.5, bbox_to_anchor=(-0.02, 1.02))
-    elif legend_loc == 2: # for 2016 events fail mlb-weighting method, for note publication
-        ax.legend(handles=[custom_line_rmse, custom_line_bias, custom_line_absbias, 
-                           custom_patch_tf_mlb_fail, custom_patch_tf_mlb_succeed], 
-                  loc='upper center', ncol=2,  fontsize=legend_fontsize, columnspacing=1.0, bbox_to_anchor=(0.5, 1.02))
-        ax.text(0.5, 0.68, "Transformer Reconstruction", transform=ax.transAxes, fontsize=legend_fontsize, 
-                ha='center', va='top', bbox=dict(facecolor='none', edgecolor='none'))
-    elif legend_loc == 3: # for results when only transformer results exist, temporary for Run 3
-        ax.legend(handles=[custom_line_rmse, custom_patch_tf, 
-                           custom_line_bias, custom_patch_blank, 
-                           custom_line_absbias, custom_patch_blank], 
-                  loc='upper center', ncol=3, fontsize=legend_fontsize, columnspacing=1.0, bbox_to_anchor=(0.5, 1.02))
-    elif legend_loc == 4: # for results when only mlb-weighting and transformer exist, for Run 2
-        ax.legend(handles=[custom_line_rmse, custom_line_bias, custom_line_absbias, 
-                           custom_patch_mlb, custom_patch_tf], 
-                  loc='upper right', ncol=2, fontsize=legend_fontsize, columnspacing=0.5) 
-
-    # Set x axis
-    ax.set_xlim(bin_edges[0], bin_edges[-1])
-    xlabel_tot = x_label.split()
-    xlabel_tot = [labels.get_var_label(x) for x in xlabel_tot]
-    xlabel_tot = ' '.join(xlabel_tot)
-    ax.set_xlabel(xlabel_tot, fontsize=30)
-    ax.tick_params(axis='both', labelsize=28)
+    ax.set_xlim(left=bin_edges[0], right=bin_edges[-1])
+    ax.set_xlabel(labels.get_var_label(x_label), fontsize=30)
+    ax.tick_params(axis="both", labelsize=28)
     ax.xaxis.set_tick_params(pad=10)
 
-    # Set y axis
     ax.set_ylabel(y_label, fontsize=30)
-    ax.set_ylim(top=1.9 * max_height)
-    if legend_loc == 1:
-        ax.set_ylim(top=1.75*max_height)
-    if ymax is not None:
-        ax.set_ylim(top=ymax)
-    ax.set_ylim(bottom=1.2 * min_height)
+    # if (ymax is None):
+    #     ymax = 1.9 * max_height
+    # ax.set_ylim(bottom=1.2*min_height, top=ymax)
+    ax = hep.utils.yscale_legend(ax) # we'll see how this guy works
 
-    # Save plot
-    x_label = x_label.replace(' ', '_')
-    
+    # CMS labelling
+    try:
+        com_energy = labels.get_com_energy(cms_year)
+    except ValueError:
+        com_energy = None
+    hep.cms.label(cms_text, loc=0, data=False, year=cms_year, com=com_energy, ax=ax, fontsize=22)
+
     if (save_filename is not None):
         plt.savefig(f"{save_filename}.{img_type}", dpi="figure", bbox_inches="tight")
     else:
