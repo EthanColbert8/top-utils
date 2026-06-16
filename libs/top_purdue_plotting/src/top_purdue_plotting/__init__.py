@@ -1,3 +1,5 @@
+__version__ = "0.1.1"
+
 # Set up plots to use CMS styling
 from matplotlib import pyplot as plt
 import mplhep as hep

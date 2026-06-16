@@ -174,7 +174,7 @@ def plot_binned_rmse_bias(
         num_cols += 1
 
     # Yao also used `bbox_to_anchor` argument for some of her cases for some reason...
-    ax.legend(handles=all_legend_handles, loc="upper right", ncol=num_cols, fontsize=24, columnspacing=0.5)
+    ax.legend(handles=all_legend_handles, loc="upper left", ncol=num_cols, fontsize=24, columnspacing=0.5)
 
     ax.set_xlim(left=bin_edges[0], right=bin_edges[-1])
     ax.set_xlabel(labels.get_var_label(x_label), fontsize=30)

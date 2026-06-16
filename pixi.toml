@@ -5,16 +5,13 @@ name = "top-utils"
 platforms = ["linux-64"]
 version = "0.1.0"
 
-# [system-requirements]
-# cuda = "12.4"
-
 [tasks]
 
 [dependencies]
-python = "3.12.*"
+python = "3.13.*"
 numpy = "*"
-pandas = "2.2.*"
-awkward = "2.7.*"
+awkward = "2.*"
+pandas = "*"
 awkward-cpp = "*"
 scipy = "*"
 numba = "*"

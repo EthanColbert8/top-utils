@@ -1,1 +1,3 @@
+__version__ = "0.1.0"
+
 from .purdue import get_minitree_file_list, get_nominal_ttbar_file_list, load_reconstruction_data_from_files, load_from_nominal_ttbar_files, load_nominal_ttbar_reconstruction_data, create_reconstruction_vectors, load_reconstruction_vectors
