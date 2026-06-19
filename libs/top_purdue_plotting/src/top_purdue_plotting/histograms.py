@@ -72,11 +72,14 @@ def plot_1d_hists_overlay(
 
     for method, histogram in hists.items():
         current_color = colors.get(method, "black")
-        
+        current_hist_type = method_histplot_types.get(method.lower(), "step")
+        current_hist_opacity = 0.6 if (current_hist_type == "fill") else 1.0
+
         hep.histplot(histogram, ax=ax_main,
-            stack=False, histtype=method_histplot_types.get(method.lower(), "step"),
+            stack=False, histtype=current_hist_type,
             density=density, binwnorm=binwnorm,
-            color=current_color, label=labels.get_method_label(method)
+            color=current_color, alpha=current_hist_opacity,
+            label=labels.get_method_label(method)
         )
 
         if (use_ratio and (method != ratio_key)):
