@@ -9,21 +9,24 @@ from . import colorschemes
 from . import labels
 
 method_histplot_types = {
-    "solver": "step",
     "feedforward": "step",
     "mlp": "step",
     "transformer": "step",
     "hybrid": "step",
+    "solver": "step",
     "nu2flows": "step",
     "mlb_weighting": "step",
+    "mlb_reweighting": "step",
+    "mlb-weighting": "step",
+    "mlb-reweighting": "step",
     
     "gen": "fill",
     "true": "fill",
     "truth": "fill",
     "target": "fill",
 
-    "Original": "fill",
-    "Resampled": "step",
+    "original": "fill",
+    "resampled": "step",
 }
 
 def plot_1d_hists_overlay(
@@ -71,13 +74,16 @@ def plot_1d_hists_overlay(
         current_color = colors.get(method, "black")
         
         hep.histplot(histogram, ax=ax_main,
-            stack=False, histtype=method_histplot_types.get(method, "step"),
+            stack=False, histtype=method_histplot_types.get(method.lower(), "step"),
             density=density, binwnorm=binwnorm,
             color=current_color, label=labels.get_method_label(method)
         )
 
         if (use_ratio and (method != ratio_key)):
-            ratio_values = histogram.values() / hists[ratio_key].values()
+            if density:
+                ratio_values = histogram.density() / hists[ratio_key].density()
+            else:
+                ratio_values = histogram.values() / hists[ratio_key].values()
             
             # if we're plotting an overlay, probably don't care about ratio uncertainties
             ax_ratio.stairs(ratio_values, bin_edges, color=current_color)

@@ -1,4 +1,4 @@
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 # Set up plots to use CMS styling
 from matplotlib import pyplot as plt
