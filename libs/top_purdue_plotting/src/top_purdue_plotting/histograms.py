@@ -81,9 +81,9 @@ def plot_1d_hists_overlay(
         real_density = density
         if density and (binwnorm is not None):
             density_values = histogram.density()
-            real_histogram = histogram.copy()
+            real_histogram = Hist(hist.axis.Variable(bin_edges, name=histogram.axes[0].name, label=histogram.axes[0].label), storage=hist.storage.Double())
             real_histogram[...] = density_values
-            real_density = False 
+            real_density = False
         else:
             real_histogram = histogram
 
