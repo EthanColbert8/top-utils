@@ -51,13 +51,19 @@ def plot_1d_hists_overlay(
     """
     use_ratio = ratio_key is not None
 
-    y_label = "Density" if density else "Events"
-    if (binwnorm is not None):
-        y_label += f" / {binwnorm} {x_units}".rstrip()
-
     an_axis = hists[list(hists.keys())[0]].axes[0]
     bin_edges = an_axis.edges
 
+    # automatically do bin-width-normalization if bin widths are irregular
+    if (binwnorm is None):
+        bin_widths = np.diff(bin_edges)
+        if (not np.allclose(bin_widths, bin_widths[0])):
+            binwnorm = np.min(bin_widths)
+
+    y_label = "Density" if density else "Events"
+    if (binwnorm is not None):
+        y_label += f" / {binwnorm} {x_units}".rstrip()
+    
     if (x_label is None):
         x_label = an_axis.label if (an_axis.label != "") else an_axis.name
 
@@ -250,6 +256,12 @@ def plot_1d_hists_stacked(
     legend_labels = [labels.get_process_label(label) for label in legend_entries]
     colors_list = [colors.get(label, None) for label in legend_entries]
     bin_edges = histograms_list[0].axes[0].edges
+
+    # automatically do bin-width-normalization if bin widths are irregular
+    if (binwnorm is None):
+        bin_widths = np.diff(bin_edges)
+        if (not np.allclose(bin_widths, bin_widths[0])):
+            binwnorm = np.min(bin_widths)
 
     # Plot stacked MC hists
     hep.histplot(histograms_list, ax=ax_main,
