@@ -2,6 +2,9 @@
 Scratch*.ipynb
 scratch*.ipynb
 
+# test artifacts
+test_images/
+
 # Dev environments
 .vscode/
 
