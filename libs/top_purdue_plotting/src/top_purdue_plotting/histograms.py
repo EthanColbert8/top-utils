@@ -77,13 +77,23 @@ def plot_1d_hists_overlay(
         ax_ratio = ax_main
 
     for method, histogram in hists.items():
+        # mplhep doesn't allow both density and binwnorm, so we compute density ourselves
+        real_density = density
+        if density and (binwnorm is not None):
+            density_values = histogram.density()
+            real_histogram = histogram.copy()
+            real_histogram[...] = density_values
+            real_density = False 
+        else:
+            real_histogram = histogram
+
         current_color = colors.get(method, "black")
         current_hist_type = method_histplot_types.get(method.lower(), "step")
         current_hist_opacity = 0.6 if (current_hist_type == "fill") else 1.0
 
-        hep.histplot(histogram, ax=ax_main,
+        hep.histplot(real_histogram, ax=ax_main,
             stack=False, histtype=current_hist_type,
-            density=density, binwnorm=binwnorm,
+            density=real_density, binwnorm=binwnorm,
             color=current_color, alpha=current_hist_opacity,
             label=labels.get_method_label(method)
         )
