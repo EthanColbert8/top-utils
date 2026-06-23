@@ -54,11 +54,12 @@ def plot_1d_hists_overlay(
     an_axis = hists[list(hists.keys())[0]].axes[0]
     bin_edges = an_axis.edges
 
-    # # automatically do bin-width-normalization if bin widths are irregular
-    # if (binwnorm is None):
-    #     bin_widths = np.diff(bin_edges)
-    #     if (not np.allclose(bin_widths, bin_widths[0])):
-    #         binwnorm = np.min(bin_widths)
+    # automatically do bin-width-normalization if bin widths are irregular
+    # and not doing density
+    if (not density) and (binwnorm is None):
+        bin_widths = np.diff(bin_edges)
+        if (not np.allclose(bin_widths, bin_widths[0])):
+            binwnorm = np.min(bin_widths)
 
     y_label = "Density" if density else "Events"
     if (binwnorm is not None):
@@ -77,23 +78,24 @@ def plot_1d_hists_overlay(
         ax_ratio = ax_main
 
     for method, histogram in hists.items():
-        # # mplhep doesn't allow both density and binwnorm, so we compute density ourselves
-        # real_density = density
-        # if density and (binwnorm is not None):
-        #     density_values = histogram.density()
-        #     real_histogram = histogram.copy()
-        #     real_histogram[...] = np.column_stack([density_values, np.zeros(len(density_values))])
-        #     real_density = False
-        # else:
-        #     real_histogram = histogram
+        # mplhep histplot doesn't seem to do density properly...
+        real_density = density
+        if density:
+            density_values = histogram.density()
+            density_variances = histogram.variances() / np.square(np.diff(bin_edges) * np.sum(histogram.values()))
+            real_histogram = histogram.copy()
+            real_histogram[...] = np.column_stack([density_values, density_variances])
+            real_density = False
+        else:
+            real_histogram = histogram
 
         current_color = colors.get(method, "black")
         current_hist_type = method_histplot_types.get(method.lower(), "step")
         current_hist_opacity = 0.6 if (current_hist_type == "fill") else 1.0
 
-        hep.histplot(histogram, ax=ax_main,
+        hep.histplot(real_histogram, ax=ax_main,
             stack=False, histtype=current_hist_type,
-            density=density, binwnorm=binwnorm,
+            density=real_density, binwnorm=binwnorm,
             color=current_color, alpha=current_hist_opacity,
             label=labels.get_method_label(method)
         )

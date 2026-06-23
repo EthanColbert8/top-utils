@@ -27,10 +27,10 @@ class TestHistOverlayPlotting(unittest.TestCase):
         self.hist1 = Hist(hist.axis.Variable(binning, name="x"), storage=hist.storage.Weight())
         self.hist2 = Hist(hist.axis.Variable(binning, name="x"), storage=hist.storage.Weight())
         
-        data1 = rand_gen.normal(loc=0.0, scale=6.0, size=1500)
-        weights1 = rand_gen.uniform(low=0.4, high=0.8, size=1500)
-        data2 = rand_gen.normal(loc=0.0, scale=6.0, size=3500)
-        weights2 = rand_gen.uniform(low=0.4, high=0.8, size=3500)
+        data1 = rand_gen.normal(loc=0.0, scale=6.0, size=6000)
+        weights1 = rand_gen.uniform(low=0.4, high=0.8, size=6000)
+        data2 = rand_gen.normal(loc=0.0, scale=6.0, size=10000)
+        weights2 = rand_gen.uniform(low=0.4, high=0.8, size=10000)
 
         self.hist1.fill(x=data1, weight=weights1)
         self.hist2.fill(x=data2, weight=weights2)
