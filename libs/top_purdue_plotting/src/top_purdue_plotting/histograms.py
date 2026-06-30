@@ -364,17 +364,6 @@ def plot_1d_hists_stacked(
     else:
         ax_main.set_ylabel("Events")
     ax_main.set_yscale(yscale)
-    
-    # # This all just sets y-axis limits to leave space for the legend,
-    # # which should be done automatically by mplhep below
-    # if binwnorm is None:
-    #     tmp_binwnorm = np.diff(total_mc_hist.axes[0].edges)
-    # else:
-    #     tmp_binwnorm = binwnorm * np.ones(np.diff(total_mc_hist.axes[0].edges).shape)
-    # if yscale == 'linear':
-    #     ax_main.set_ylim(0, np.max(total_mc_hist.values()/np.diff(total_mc_hist.axes[0].edges)*tmp_binwnorm)*1.5) # leave space for the legend
-    # elif yscale == 'log':
-    #     ax_main.set_ylim(0.1, np.max(total_mc_hist.values()/np.diff(total_mc_hist.axes[0].edges)*tmp_binwnorm)*50) # leave space for the legend
 
     if (xlim is None):
         xlim = (bin_edges[0], bin_edges[-1])
@@ -387,7 +376,7 @@ def plot_1d_hists_stacked(
         ax_main.set_xticklabels([r"$-\pi$", r"$-\frac{\pi}{2}$", r"$0$", r"$\frac{\pi}{2}$", r"$\pi$"])
 
     ax_main.legend(loc="upper left", ncol=3)
-    ax_main = hep.utils.yscale_legend(ax_main) # rescale y-axis limits to make room for legend
+    ax_main = hep.utils.yscale_legend(ax_main, soft_fail=True) # rescale y-axis limits to make room for legend
 
     # CMS labelling
     hep.cms.label(cms_text, loc=0, data=data_used, lumi=cms_lumi, com=cms_com_energy, ax=ax_main)

@@ -69,6 +69,7 @@ def plot_binned_metric(
     ax_main.set_yscale(y_scale)
 
     ax_main.legend()
+    ax_main = hep.utils.yscale_legend(ax_main, soft_fail=True)
 
     # CMS labelling
     try:
@@ -90,7 +91,6 @@ def plot_binned_rmse_bias(
     bin_edges: np.ndarray,
     x_label: Optional[str] = "",
     y_label: Optional[str] = "",
-    # ymax: Optional[float] = None,
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
     save_filename: Optional[str] = None,
     cms_text: Optional[str] = "Work in Progress",
@@ -182,10 +182,7 @@ def plot_binned_rmse_bias(
     ax.xaxis.set_tick_params(pad=10)
 
     ax.set_ylabel(y_label, fontsize=30)
-    # if (ymax is None):
-    #     ymax = 1.9 * max_height
-    # ax.set_ylim(bottom=1.2*min_height, top=ymax)
-    ax = hep.utils.yscale_legend(ax) # we'll see how this guy works
+    ax = hep.utils.yscale_legend(ax, soft_fail=True)
 
     # CMS labelling
     try:
