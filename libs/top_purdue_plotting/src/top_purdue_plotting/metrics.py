@@ -24,6 +24,7 @@ def plot_binned_metric(
     cms_year: Optional[str] = "2022",
     hline: Optional[float] = None,
     vline: Optional[float] = None,
+    y_max: Optional[float] = None,
     img_type: Optional[str] = "png"
 ):
     """
@@ -71,6 +72,12 @@ def plot_binned_metric(
     ax_main.legend()
     ax_main = hep.utils.yscale_legend(ax_main, soft_fail=True)
 
+    # Cap y-axis to y_max (if given) after auto-adjustment, if valid
+    if (y_max is not None):
+        current_ymin, current_ymax = ax_main.get_ylim()
+        if (current_ymax > y_max) and (current_ymin < y_max):
+            ax_main.set_ylim(top=y_max)
+
     # CMS labelling
     try:
         com_energy = labels.get_com_energy(cms_year)
@@ -93,6 +100,7 @@ def plot_binned_rmse_bias(
     y_label: Optional[str] = "",
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
     save_filename: Optional[str] = None,
+    y_max: Optional[float] = None,
     cms_text: Optional[str] = "Work in Progress",
     cms_year: Optional[str] = "2022",
     img_type: Optional[str] = "png"
@@ -183,6 +191,12 @@ def plot_binned_rmse_bias(
 
     ax.set_ylabel(y_label, fontsize=30)
     ax = hep.utils.yscale_legend(ax, soft_fail=True)
+
+    # Cap y-axis to y_max (if given) after auto-adjustment, if valid
+    if (y_max is not None):
+        current_ymin, current_ymax = ax.get_ylim()
+        if (current_ymax > y_max) and (current_ymin < y_max):
+            ax.set_ylim(top=y_max)
 
     # CMS labelling
     try:
