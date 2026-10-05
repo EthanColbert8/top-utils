@@ -100,6 +100,7 @@ def plot_binned_rmse_bias(
     y_label: Optional[str] = "",
     colors: Optional[dict] = colorschemes.reconstruction_method_colors,
     save_filename: Optional[str] = None,
+    y_min: Optional[float] = None,
     y_max: Optional[float] = None,
     cms_text: Optional[str] = "Work in Progress",
     cms_year: Optional[str] = "2022",
@@ -197,6 +198,12 @@ def plot_binned_rmse_bias(
         current_ymin, current_ymax = ax.get_ylim()
         if (current_ymax > y_max) and (current_ymin < y_max):
             ax.set_ylim(top=y_max)
+
+    # Cap y-axis to y_min (if given) after auto-adjustment, if valid
+    if (y_min is not None):
+        current_ymin, current_ymax = ax.get_ylim()
+        if (current_ymin < y_min) and (current_ymax > y_min):
+            ax.set_ylim(bottom=y_min)
 
     # CMS labelling
     try:
