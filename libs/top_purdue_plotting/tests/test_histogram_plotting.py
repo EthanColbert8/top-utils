@@ -35,6 +35,13 @@ class TestHistOverlayPlotting(unittest.TestCase):
         self.hist1.fill(x=data1, weight=weights1)
         self.hist2.fill(x=data2, weight=weights2)
 
+        self.hist1_2d = Hist(
+            hist.axis.Variable(binning, name="x"),
+            hist.axis.Variable(binning, name="y"),
+            storage=hist.storage.Weight()
+        )
+        self.hist1_2d.fill(x=data1, y=data2[:6000], weight=weights1)
+
     def test_hist_overlay_steps(self):
         histograms = {
             "sample1": self.hist1,
@@ -73,3 +80,5 @@ class TestHistOverlayPlotting(unittest.TestCase):
             density=True, ratio_key="sample2", colors=self.colors,
             cms_text="Test Plot", cms_year="2022"
         )
+
+    # HERE: add a test for 2D histogram returning vmin and vmax

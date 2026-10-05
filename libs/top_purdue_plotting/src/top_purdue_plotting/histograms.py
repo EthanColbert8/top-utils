@@ -197,7 +197,7 @@ def plot_2d_hist(
 
     fig, ax = plt.subplots(dpi=100)
 
-    hep.hist2dplot(real_histogram, ax=ax, norm=scale, cmap="viridis", cbar=show_cbar, cmin=cbar_min, cmax=cbar_max)
+    artists = hep.hist2dplot(real_histogram, ax=ax, norm=scale, cmap="viridis", cbar=show_cbar, cmin=cbar_min, cmax=cbar_max)
 
     if plot_unity:
         limits = [xmin, xmax]
@@ -225,8 +225,10 @@ def plot_2d_hist(
         plt.savefig(f"{save_filename}.{img_type}", dpi="figure")
     else:
         plt.show()
-    
     plt.close()
+
+    vmin, vmax = artists.pcolormesh.get_clim()
+    return vmin, vmax
 
 def plot_1d_hists_stacked(
     hists: Dict[str, Hist],
@@ -385,5 +387,4 @@ def plot_1d_hists_stacked(
         plt.savefig(f"{save_filename}.{img_type}", dpi='figure')  
     else:
         plt.show()  
-    
     plt.close()
