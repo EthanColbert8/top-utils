@@ -81,4 +81,17 @@ class TestHistOverlayPlotting(unittest.TestCase):
             cms_text="Test Plot", cms_year="2022"
         )
 
-    # HERE: add a test for 2D histogram returning vmin and vmax
+    def test_hist_2d_cbar_limits(self):
+        cmin = 0.0
+        cmax = 20.0
+        save_filename = os.path.join(self.test_images_dir, f"hist_2d_{self.datetimestamp}")
+
+        vmin, vmax = plotting.plot_2d_hist(
+            self.hist1_2d, weighted=True, scale="linear",
+            save_filename=save_filename, density=False,
+            show_cbar=True, cbar_min=cmin, cbar_max=cmax,
+            cms_text="Test Plot", cms_year="2022"
+        )
+
+        self.assertEqual(vmin, cmin)
+        self.assertEqual(vmax, cmax)
