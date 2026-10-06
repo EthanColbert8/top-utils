@@ -95,3 +95,42 @@ class TestHistOverlayPlotting(unittest.TestCase):
 
         self.assertEqual(vmin, cmin)
         self.assertEqual(vmax, cmax)
+
+    def test_get_2d_hist_cbar_limits(self):
+        histogram = Hist(
+            hist.axis.Regular(2, 0.0, 2.0, name="x"),
+            hist.axis.Regular(2, 0.0, 2.0, name="y"),
+        )
+        histogram[...] = np.array([[0.0, 2.0], [5.0, 9.0]])
+        original_values = histogram.values().copy()
+
+        cases = [
+            ({}, (0.0, 9.0)),
+            ({"scale": "log"}, (2.0, 9.0)), # Non-positive values are ignored for log scale
+            ({"cbar_min": 3.0}, (3.0, 9.0)),
+            ({"cbar_max": 4.0}, (0.0, 4.0)),
+            ({"cbar_min": 1.0, "cbar_max": 7.0}, (1.0, 7.0)),
+        ]
+        for kwargs, expected in cases:
+            with self.subTest(**kwargs):
+                vmin, vmax = plotting.get_2d_hist_cbar_limits(histogram, **kwargs)
+                self.assertEqual((vmin, vmax), expected)
+
+        np.testing.assert_array_equal(histogram.values(), original_values)
+
+    def test_get_2d_hist_cbar_limits_matches_plot(self):
+        for scale in ["linear", "log"]:
+            for density in [False, True]:
+                with self.subTest(scale=scale, density=density):
+                    kwargs = {
+                        "weighted": True, "scale": scale, "density": density,
+                        "cms_text": "Test Plot", "cms_year": "2022",
+                    }
+                    save_filename = os.path.join(
+                        self.test_images_dir, f"hist_2d_{scale}_density{density}_{self.datetimestamp}"
+                    )
+
+                    expected = plotting.get_2d_hist_cbar_limits(self.hist1_2d, **kwargs)
+                    actual = plotting.plot_2d_hist(self.hist1_2d, save_filename=save_filename, **kwargs)
+
+                    self.assertEqual(actual, expected)

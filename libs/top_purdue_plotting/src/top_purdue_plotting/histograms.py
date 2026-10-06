@@ -3,7 +3,7 @@ import hist
 from hist import Hist
 from matplotlib import pyplot as plt
 import mplhep as hep
-from typing import Dict, Optional
+from typing import Dict, Tuple, Optional
 
 from . import colorschemes
 from . import labels
@@ -139,6 +139,35 @@ def plot_1d_hists_overlay(
 
     plt.close()
 
+def _normalize_density_2d(histogram: Hist, weighted: Optional[bool] = False) -> Hist:
+    """
+    Normalizes a 2D histogram to density, since mplhep can't do it for us.
+    """
+    # Get the counts and bins to normalize to density
+    counts = histogram.values()
+    first_edges = histogram.axes[0].edges
+    second_edges = histogram.axes[1].edges
+
+    first_bin_widths = np.diff(first_edges)
+    second_bin_widths = np.diff(second_edges)
+    bin_areas = np.outer(first_bin_widths, second_bin_widths)
+
+    total_count = np.sum(counts)
+    normalization_factor = total_count * bin_areas
+    normalized_counts = counts / normalization_factor # Normalize to density
+
+    if weighted:
+        normalized_variances = histogram.variances() / np.square(normalization_factor) # Normalize variances as well
+
+        dtype = np.dtype([('value', '<f8'), ('variance', '<f8')])
+        stuff_to_fill = np.rec.fromarrays([normalized_counts, normalized_variances], dtype=dtype)
+
+        histogram[...] = stuff_to_fill
+    else:
+        histogram[...] = normalized_counts
+
+    return histogram
+
 def plot_2d_hist(
     histogram: Hist,
     weighted: Optional[bool] = False,
@@ -154,7 +183,7 @@ def plot_2d_hist(
     cms_text: Optional[str] = "Work in Progress",
     cms_year: Optional[str] = "2022",
     img_type: Optional[str] = "png"
-):
+) -> Tuple[float, float]:
     """
     Plots a 2D histogram using the \"Viridis\" colormap (recommended by CMS).
     Can optionally:
@@ -163,33 +192,10 @@ def plot_2d_hist(
     - Use logarithmic color scaling
     """
     if density:
-        real_histogram = histogram.copy()
-
-        # Get the counts and bins to normalize to density
-        counts = real_histogram.values()
-        first_edges = real_histogram.axes[0].edges
-        second_edges = real_histogram.axes[1].edges
-
-        first_bin_widths = np.diff(first_edges)
-        second_bin_widths = np.diff(second_edges)
-        bin_areas = np.outer(first_bin_widths, second_bin_widths)
-
-        total_count = np.sum(counts)
-        normalization_factor = total_count * bin_areas
-        normalized_counts = counts / normalization_factor # Normalize to density
-
-        if weighted:
-            normalized_variances = real_histogram.variances() / np.square(normalization_factor) # Normalize variances as well
-            
-            dtype = np.dtype([('value', '<f8'), ('variance', '<f8')])
-            stuff_to_fill = np.core.records.fromarrays([normalized_counts, normalized_variances], dtype=dtype)
-
-            real_histogram[...] = stuff_to_fill
-        else:
-            real_histogram[...] = normalized_counts
+        real_histogram = _normalize_density_2d(histogram.copy(), weighted=weighted)
     else:
         real_histogram = histogram
-    
+
     xmin = real_histogram.axes[0].edges[0]
     xmax = real_histogram.axes[0].edges[-1]
     ymin = real_histogram.axes[1].edges[0]
@@ -227,8 +233,34 @@ def plot_2d_hist(
         plt.show()
     plt.close()
 
-    vmin, vmax = artists.pcolormesh.get_clim()
-    return vmin, vmax
+    return artists.pcolormesh.get_clim()
+
+def get_2d_hist_cbar_limits(
+    histogram: Hist,
+    weighted: Optional[bool] = False,
+    scale: Optional[str] = "linear",
+    density: Optional[bool] = False,
+    cbar_min: Optional[float] = None,
+    cbar_max: Optional[float] = None,
+    **kwargs
+) -> Tuple[float, float]:
+    """
+    Gets the colorbar limits that would be used for a 2D histogram plot. This can be used to
+    prepare a common set of colorbar limits for multiple 2D histogram plots.
+
+    Allows arbitrary keyword args, so the full set of args you would pass to `plot_2d_hist` can
+    be given here. Note that this means typos are silently replaced by the default args.
+    """
+    if density:
+        real_histogram = _normalize_density_2d(histogram.copy(), weighted=weighted)
+    else:
+        real_histogram = histogram
+
+    mappable = plt.cm.ScalarMappable(norm=scale)
+    mappable.set_array(np.ma.masked_invalid(real_histogram.values()))
+    mappable.set_clim(cbar_min, cbar_max)
+    mappable.autoscale_None()
+    return mappable.get_clim()
 
 def plot_1d_hists_stacked(
     hists: Dict[str, Hist],
