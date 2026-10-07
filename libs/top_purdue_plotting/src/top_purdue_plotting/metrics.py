@@ -73,17 +73,11 @@ def plot_binned_metric(
     ax_main.legend()
     ax_main = hep.utils.yscale_legend(ax_main, soft_fail=True)
 
-    # Cap y-axis to y_max (if given) after auto-adjustment, if valid
+    # Set explicit y-axis limits if given
     if (y_max is not None):
-        current_ymin, current_ymax = ax_main.get_ylim()
-        if (current_ymax > y_max) and (current_ymin < y_max):
-            ax_main.set_ylim(top=y_max)
-
-    # Cap y-axis to y_min (if given) after auto-adjustment, if valid
+        ax_main.set_ylim(top=y_max)
     if (y_min is not None):
-        current_ymin, current_ymax = ax_main.get_ylim()
-        if (current_ymin < y_min) and (current_ymax > y_min):
-            ax_main.set_ylim(bottom=y_min)
+        ax_main.set_ylim(bottom=y_min)
 
     # CMS labelling
     try:
