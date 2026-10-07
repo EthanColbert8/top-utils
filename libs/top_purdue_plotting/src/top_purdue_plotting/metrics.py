@@ -24,6 +24,7 @@ def plot_binned_metric(
     cms_year: Optional[str] = "2022",
     hline: Optional[float] = None,
     vline: Optional[float] = None,
+    y_min: Optional[float] = None,
     y_max: Optional[float] = None,
     img_type: Optional[str] = "png"
 ):
@@ -77,6 +78,12 @@ def plot_binned_metric(
         current_ymin, current_ymax = ax_main.get_ylim()
         if (current_ymax > y_max) and (current_ymin < y_max):
             ax_main.set_ylim(top=y_max)
+
+    # Cap y-axis to y_min (if given) after auto-adjustment, if valid
+    if (y_min is not None):
+        current_ymin, current_ymax = ax_main.get_ylim()
+        if (current_ymin < y_min) and (current_ymax > y_min):
+            ax_main.set_ylim(bottom=y_min)
 
     # CMS labelling
     try:
